@@ -8,4 +8,4 @@ SET(CMAKE_BUILD_TYPE "Debug")
 
 find_package(FMT REQUIRED)
 
-add_executable(${app_name} main.cpp)
+add_executable(${app_name} main.cpp read_file.cpp)
