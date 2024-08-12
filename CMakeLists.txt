@@ -8,4 +8,4 @@ SET(CMAKE_BUILD_TYPE "Debug")
 
 find_package(FMT REQUIRED)
 
-add_executable(${app_name} main.cpp read_file.cpp)
+add_executable(${app_name} main.cpp read_file.cpp pci_enumeration.cpp pci_device.cpp )

@@ -1,49 +1,42 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+//#include <cstdint>
+//#include <sstream>
+//#include <vector>
+//#define FMT_HEADER_ONLY
 
-#define FMT_HEADER_ONLY
-
-#include <fmt/format.h>
-#include <fmt/core.h>
+//#include <fmt/format.h>
+//#include <fmt/core.h>
 
 
 #include "read_file.hpp"
 
 using namespace std::filesystem;
+using namespace std;
 
-void ergodic(const path& p)
-{
-    if(!exists(p))
+
+bool read_file(std::string file_name)
+{   	
+    fstream file;
+    file.open(file_name, std::ios::in);
+    
+    if(!file)
     {
-        return;
+        cout << "Unable to open the file!\n" << endl;
+        return false;
     }
-    recursive_directory_iterator begin { p };
-    recursive_directory_iterator end { };
-    for (auto iter { begin }; iter != end; ++iter)
-	{
-        const string spacer(iter.depth() * 2,' ');
-        auto& entry { *iter };
-        if(is_regular_file(entry))
-	    {
-            cout << fmt::format("{}File: {} ({} bytes)",
-                spacer, entry.path().string(), file_size(entry)) << endl;
-        }
-        else if(is_directory(entry))
-        {
-            cout << fmt::format("{}Directory: {}", spacer, entry.path().string()) << endl;
-        }
+    else
+        cout << "Succeed to open the file(" << file_name << ")!" << endl;
+	
+    string line;
+    while (getline (file, line))
+    {
+        cout << "m_deviceId= " << line <<endl;
     }
+
+    file.close();
+
+	return true;
 }
 
-void read_file()
-{
-    /*using namespace std;
-	
-	ofstream fout(filename.c_str());
-	
-	fout*/
-	
-	path p1{ "/sys/bus/pci" };
-	ergodic(p1);
-}
