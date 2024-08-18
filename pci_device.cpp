@@ -1,7 +1,7 @@
 #include <iostream>
 #include <fstream>
-#include <string>
-#include <filesystem>
+#include <algorithm>
+#include <vector>
 #include "pci_device.hpp"
 
 using namespace std;
@@ -15,23 +15,29 @@ pci_device::pci_device(std::filesystem::path filePath)
     m_filePath = filePath;
     m_deviceId = getFileContext("device");
     m_vendorId = getFileContext("vendor");
-    m_classId = getFileContext("class");
+    m_classId  = getFileContext("class");
+    m_pciName  = getFileContext2();
 }
 
 uint32_t pci_device::getFileContext(string fileName)
 {
     std::string filePath = m_filePath + "/" + fileName;
-    cout << "Path: " << filePath << endl;
     fstream file;
     file.open(filePath, std::ios::in);
 	
 	string dId;
 	getline (file, dId);
-    cout << "file context: " << dId <<endl;
     file.close();
 	
 	uint32_t val = stoi (dId, nullptr, 0);
-    cout << "val = " << val << '\n' << endl;
 	
     return val;
 }
+
+std::string pci_device::getFileContext2()
+{
+    std::string path = m_filePath;
+    std::string tree = path.erase(0,21);
+    return tree;
+}
+
