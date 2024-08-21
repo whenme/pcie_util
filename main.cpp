@@ -8,6 +8,8 @@
 #include "pci_enumeration.hpp"
 #include "cmdline.hpp"
 #include "pci_tree.hpp"
+#include "region_amount.hpp"
+#include "pci_region.hpp"
 
 int32_t main(int argc, char *argv[])
 {
@@ -24,6 +26,7 @@ int32_t main(int argc, char *argv[])
     a.add("vendor", 'v', "vendor Id");	
     a.add("class" , 'c', "class  Id");
     a.add("tree",   't', "pci tree" );
+    a.add<std::string>("id", 'i', "id of pci device", false, "");
 
     a.parse_check(argc, argv);
 
@@ -46,14 +49,45 @@ int32_t main(int argc, char *argv[])
             cout << "Path:" << dev.getFilePath() << ": class id: "  << dev.getClassId()  << endl;
     }
 
+    if(a.exist("id"))
+    {
+        pci_device* pciDevice;
+	
+        std::string fileName;
+        fileName = a.get<std::string>("id");
+        pciDevice = tree.getPciDevice(fileName);
+        if(pciDevice == nullptr)
+            cout << "failed" << endl;
+        else
+        {
+            int regionAmount = getPciDeviceRegionAmount(fileName);
+            if(regionAmount >= 0)
+            {
+                cout << "The PCI device " << fileName << " has " << regionAmount << " regions." << endl;
+            }
     
-    pci_device* pciDevice;
+            int region_amount = regionAmount;
+            read_region(fileName, region_amount);
+        }
+    }		
+    /*pci_device* pciDevice;
 	
     std::string fileName;
     cin >> fileName;
     pciDevice = tree.getPciDevice(fileName);
     if(pciDevice == nullptr)
         cout << "failed" << endl;
+    else
+    {
+        int regionAmount = getPciDeviceRegionAmount(fileName);
+        if(regionAmount >= 0)
+        {
+            cout << "The PCI device " << fileName << " has " << regionAmount << " regions." << endl;
+        }
 
+        int region_amount = regionAmount;
+        read_region(fileName, region_amount);
+    }*/
+	
     return 0;
 }

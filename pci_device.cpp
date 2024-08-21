@@ -1,8 +1,10 @@
 #include <iostream>
 #include <fstream>
-#include <algorithm>
 #include <vector>
+#include <iomanip>
+
 #include "pci_device.hpp"
+#include "region_amount.hpp"
 
 using namespace std;
 using namespace std::filesystem;
@@ -17,6 +19,9 @@ pci_device::pci_device(std::filesystem::path filePath)
     m_vendorId = getFileContext("vendor");
     m_classId  = getFileContext("class");
     m_pciName  = getFileContext2();
+    m_config   = getFileContext3("config");
+    m_regionAmount = getPciDeviceRegionAmount(m_pciName);
+
 }
 
 uint32_t pci_device::getFileContext(string fileName)
@@ -41,3 +46,28 @@ std::string pci_device::getFileContext2()
     return tree;
 }
 
+std::string pci_device::getFileContext3(std::string fileName)
+{
+    std::string filePath = m_filePath + "/" + fileName;
+    ifstream file(filePath, std::ios::binary);
+	
+    std::vector<char> data((std::istreambuf_iterator<char>(file)), (std::istreambuf_iterator<char>()));
+
+    file.close();
+    //cout << filePath << endl;
+	
+    std::string config(data.begin(),data.end());
+	
+    int i = 1;
+	/*for (char c : config) 
+    {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(static_cast<unsigned char>(c)) << " ";
+        i++;
+		if(i == 17)
+        {
+            cout << '\n';
+            i = 1;
+        }
+    }*/
+    return config;
+}
