@@ -54,20 +54,10 @@ std::string pci_device::getFileContext3(std::string fileName)
     std::vector<char> data((std::istreambuf_iterator<char>(file)), (std::istreambuf_iterator<char>()));
 
     file.close();
-    //cout << filePath << endl;
 	
     std::string config(data.begin(),data.end());
 	
     int i = 1;
-	/*for (char c : config) 
-    {
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(static_cast<unsigned char>(c)) << " ";
-        i++;
-		if(i == 17)
-        {
-            cout << '\n';
-            i = 1;
-        }
-    }*/
+	
     return config;
 }

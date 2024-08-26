@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <iterator>
 
 #include "pci_device.hpp"
 
@@ -16,9 +17,13 @@ public:
     std::vector<pci_device>& getPciDeviceList() { return m_pciDeviceList; }
     pci_device* getPciDevice(std::string fileName); 	
 
+
 private:
     std::vector<pci_device> m_pciDeviceList;
     std::vector<std::string> m_pciDevice;
 };
 
 #endif
+
+
+std::string print_pci_tree();

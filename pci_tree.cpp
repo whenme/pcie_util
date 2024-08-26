@@ -1,4 +1,5 @@
 #include <filesystem>
+#include <algorithm>
 
 
 #include "pci_tree.hpp"
@@ -33,3 +34,29 @@ pci_device* pci_tree::getPciDevice(std::string fileName)
     return nullptr;
 }
 
+
+std::string print_pci_tree()
+{
+    std::vector<std::string> aTree;
+    std::vector<pci_device> devTree;
+    pci_tree tree;
+    devTree = tree.getPciDeviceList();
+	
+    cout << "-[0000:00]-" ;
+	
+    for(auto& dev : devTree)
+        aTree.push_back(dev.getPciName().erase(0, 8));
+	
+    std::sort(aTree.begin(), aTree.end());
+
+    for(auto& i : aTree)
+    {
+        if(i == aTree.front())
+            cout << "+-" << i << '\n';
+        else if(i != aTree.front() && i !=aTree.back())
+            cout << "           +-" << i << '\n';
+        else
+            cout << "           \\-" << i << '\n';
+    }
+	
+}

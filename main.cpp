@@ -29,8 +29,7 @@ int32_t main(int argc, char *argv[])
     a.add<std::string>("id", 'i', "id of pci device", false, "");
 
     a.parse_check(argc, argv);
-
-
+	
     if (a.exist("device")) 
     {
         for (auto& dev : devTree)
@@ -47,6 +46,11 @@ int32_t main(int argc, char *argv[])
     {
         for (auto& dev : devTree)
             cout << "Path:" << dev.getFilePath() << ": class id: "  << dev.getClassId()  << endl;
+    }
+	
+    if(a.exist("tree"))
+    {
+        print_pci_tree();
     }
 
     if(a.exist("id"))
@@ -70,24 +74,6 @@ int32_t main(int argc, char *argv[])
             read_region(fileName, region_amount);
         }
     }		
-    /*pci_device* pciDevice;
-	
-    std::string fileName;
-    cin >> fileName;
-    pciDevice = tree.getPciDevice(fileName);
-    if(pciDevice == nullptr)
-        cout << "failed" << endl;
-    else
-    {
-        int regionAmount = getPciDeviceRegionAmount(fileName);
-        if(regionAmount >= 0)
-        {
-            cout << "The PCI device " << fileName << " has " << regionAmount << " regions." << endl;
-        }
 
-        int region_amount = regionAmount;
-        read_region(fileName, region_amount);
-    }*/
-	
     return 0;
 }

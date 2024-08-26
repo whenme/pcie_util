@@ -7,9 +7,7 @@
 
 int read_region(std::string& fileName, int& region_amount)
 {
-    //std::vector<pci_device> configPci;
     pci_tree pci;
-    //configPci = pci.getPciDeviceList();
     pci_device* pciDevice;
     pciDevice = pci.getPciDevice(fileName);
 	
