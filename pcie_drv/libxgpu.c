@@ -188,7 +188,6 @@ static int map_single_bar(struct xgpu_dev *xdev, struct pci_dev *dev, int idx)
 	return (int)map_len;
 }
 
-
 static int identify_bars(struct xgpu_dev *xdev, int *bar_id_list, int num_bars,
                          int config_bar_pos)
 {
@@ -216,7 +215,7 @@ static int identify_bars(struct xgpu_dev *xdev, int *bar_id_list, int num_bars,
 		return -EINVAL;
 	}
 
-	pr_info("xdev 0x%p, bars %d, config at %d.\n", xdev, num_bars,
+	dbg_init("xdev 0x%p, bars %d, config at %d.\n", xdev, num_bars,
 		 config_bar_pos);
 
 	switch (num_bars) {
@@ -271,7 +270,6 @@ static int map_bars(struct xgpu_dev *xdev, struct pci_dev *dev)
     int bar_id_idx = 0;
     int config_bar_pos = 0;
 
-    pr_info("map_bars-----------");
 	/* iterate through all the BARs */
 	for (int i = 0; i < XGPU_BAR_NUM; i++) {
 		int bar_len = map_single_bar(xdev, dev, i);
@@ -282,8 +280,8 @@ static int map_bars(struct xgpu_dev *xdev, struct pci_dev *dev)
 			goto fail;
 		}
 
-		/* Try to identify BAR as XDMA control BAR
-		if ((bar_len >= XGPU_BAR_SIZE) && (xdev->config_bar_idx < 0)) {
+		// Try to identify BAR as XDMA control BAR
+		/*if ((bar_len >= XGPU_BAR_SIZE) && (xdev->config_bar_idx < 0)) {
 			if (is_config_bar(xdev, i)) {
 				xdev->config_bar_idx = i;
 				config_bar_pos = bar_id_idx;
@@ -296,6 +294,8 @@ static int map_bars(struct xgpu_dev *xdev, struct pci_dev *dev)
 		bar_id_idx++;
 	}
 
+    pr_warn("manually set config bar to 1...\n"); 
+    xdev->config_bar_idx = 1;
 	/* The XDMA config BAR must always be present */
 	if (xdev->config_bar_idx < 0) {
 		pr_info("Failed to detect XDMA config BAR\n");
@@ -382,8 +382,7 @@ static int enable_msi_msix(struct xgpu_dev *xdev, struct pci_dev *pdev)
 		int req_nvec = xdev->user_max;
 
 		dbg_init("Enabling MSI-X\n");
-		rv = pci_alloc_irq_vectors(pdev, req_nvec, req_nvec,
-					   PCI_IRQ_MSIX);
+		rv = pci_alloc_irq_vectors(pdev, req_nvec, req_nvec, PCI_IRQ_MSIX);
 		if (rv < 0)
 			dbg_init("Couldn't enable MSI-X mode: %d\n", rv);
 
@@ -445,11 +444,11 @@ static int request_regions(struct xgpu_dev *xdev, struct pci_dev *pdev)
         return -EINVAL;
     }
 
-    pr_info("%s: mod_name %s\n", __func__, xdev->mod_name);
+    dbg_init("%s: mod_name %s\n", __func__, xdev->mod_name);
     int rv = pci_request_regions(pdev, xdev->mod_name);
     /* could not request all regions? */
     if (rv) {
-        pr_info("pci_request_regions() = %d, device in use?\n", rv);
+        dbg_init("pci_request_regions() = %d, device in use?\n", rv);
         /* assume device is in use so do not disable it later */
         xdev->regions_in_use = 1;
     } else {

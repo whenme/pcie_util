@@ -1,5 +1,5 @@
-#ifndef __PCIE_PARAM_H__
-#define __PCIE_PARAM_H__
+#ifndef __XGPU_MODULE_H__
+#define __XGPU_MODULE_H__
 
 #include <linux/types.h>
 #include <linux/module.h>
@@ -101,4 +101,4 @@ struct xgpu_pci_dev {
 	void *data;
 };
 
-#endif
+#endif /* ifndef __XGPU_MODULE_H__ */

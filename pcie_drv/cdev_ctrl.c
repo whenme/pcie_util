@@ -1,9 +1,4 @@
 /*
- * This file is part of the Xilinx DMA IP Core driver for Linux
- *
- * Copyright (c) 2016-present,  Xilinx, Inc.
- * All rights reserved.
- *
  * This source code is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
@@ -43,6 +38,18 @@ static ssize_t char_ctrl_read(struct file *fp, char __user *buf, size_t count,
 	u32 w;
 	int rv;
 
+    char demo_test[] = "demo_test";
+    int len = sizeof(demo_test)>count?count:sizeof(demo_test);
+    if (*pos >= sizeof(demo_test))
+        return 0;
+
+    rv = copy_to_user(buf, demo_test, len);
+    *pos += len;
+    return len;
+
+	rv = xcdev_check(__func__, xcdev, 0);
+	if (rv < 0)
+		return rv;
 	xdev = xcdev->xdev;
 
 	/* only 32-bit aligned and 32-bit multiples */
@@ -50,6 +57,7 @@ static ssize_t char_ctrl_read(struct file *fp, char __user *buf, size_t count,
 		return -EPROTO;
 	/* first address is BAR base plus file position offset */
 	reg = xdev->bar[xcdev->bar] + *pos;
+
 	w = ioread32(reg);
 	dbg_sg("%s(@%p, count=%ld, pos=%d) value = 0x%08x\n",
 			__func__, reg, (long)count, (int)*pos, w);
@@ -59,6 +67,7 @@ static ssize_t char_ctrl_read(struct file *fp, char __user *buf, size_t count,
 
 	*pos += 4;
 	return 4;
+
 }
 
 static ssize_t char_ctrl_write(struct file *file, const char __user *buf,
@@ -68,7 +77,11 @@ static ssize_t char_ctrl_write(struct file *file, const char __user *buf,
 	struct xgpu_dev *xdev;
 	void __iomem *reg;
 	u32 w;
-	int rv;
+
+    int rv = xcdev_check(__func__, xcdev, 0);
+    if (rv < 0) {
+        return rv;
+    }
 
 	xdev = xcdev->xdev;
 
@@ -124,6 +137,11 @@ static long char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long a
 	struct xgpu_ioc_base ioctl_obj;
 	long result = 0;
 
+    int rv = xcdev_check(__func__, xcdev, 0);
+    if (rv < 0) {
+        return rv;
+    }
+
 	xdev = xcdev->xdev;
 	if (!xdev) {
 		pr_info("cmd %u, xdev NULL.\n", cmd);
@@ -173,13 +191,13 @@ static int bridge_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct xgpu_dev *xdev;
 	struct xgpu_cdev *xcdev = (struct xgpu_cdev *)file->private_data;
-	unsigned long off;
-	unsigned long phys;
-	unsigned long vsize;
-	unsigned long psize;
-	int rv;
+	unsigned long off, phys;
+	unsigned long vsize, psize;
 
-	xdev = xcdev->xdev;
+    int rv = xcdev_check(__func__, xcdev, 0);
+    if (rv < 0)
+        return rv;
+    xdev = xcdev->xdev;
 
 	off = vma->vm_pgoff << PAGE_SHIFT;
 	/* BAR physical address */
@@ -227,8 +245,8 @@ static int bridge_mmap(struct file *file, struct vm_area_struct *vma)
  */
 static const struct file_operations ctrl_fops = {
 	.owner = THIS_MODULE,
-	.open = xgpu_open,
-	.release = xgpu_close,
+	.open = char_open,
+	.release = char_close,
 	.read = char_ctrl_read,
 	.write = char_ctrl_write,
 	.mmap = bridge_mmap,

@@ -30,7 +30,7 @@
 	#define VMEM_FLAGS (VM_IO | VM_RESERVED)
 #endif
 
-#ifdef __LIBXDMA_DEBUG__
+#ifdef __LIBXGPU_DEBUG__
 #define dbg_io		pr_err
 #define dbg_fops	pr_err
 #define dbg_perf	pr_err

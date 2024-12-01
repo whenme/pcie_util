@@ -12,7 +12,9 @@
 #include "libxgpu.h"
 
 static const struct pci_device_id amd_pci_ids[] = {
-    { PCI_DEVICE(0x1002, 0x748f), },
+    { PCI_DEVICE(0x1002, 0x748f), }, //nv44
+    { PCI_DEVICE(0x1002, 0x7440), }, //nv31
+    //{ PCI_DEVICE(0x1002, 0x8038), },
 
     {0,}
 };
@@ -77,7 +79,7 @@ static int probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
         goto err_out;
     }
 
-    pr_info("%s: %s xdma%d, pdev 0x%p, xdev 0x%p, 0x%p.\n", __func__,
+    pr_info("%s: %s xgpu%d, pdev 0x%p, xdev 0x%p, 0x%p.\n", __func__,
         dev_name(&pdev->dev), xdev->idx, pdev, xpdev, xdev);
 
     xpdev->xdev = hndl;
@@ -112,7 +114,7 @@ static void remove_one(struct pci_dev *pdev)
     dev_set_drvdata(&pdev->dev, NULL);
 }
 
-static pci_ers_result_t gpu_pci_error_detected(struct pci_dev *pdev,
+static pci_ers_result_t xgpu_error_detected(struct pci_dev *pdev,
            pci_channel_state_t state)
 {
     struct xgpu_pci_dev *xpdev = dev_get_drvdata(&pdev->dev);
@@ -134,7 +136,7 @@ static pci_ers_result_t gpu_pci_error_detected(struct pci_dev *pdev,
     return PCI_ERS_RESULT_NEED_RESET;
 }
 
-static pci_ers_result_t gpu_pci_slot_reset(struct pci_dev *pdev)
+static pci_ers_result_t xgpu_slot_reset(struct pci_dev *pdev)
 {
     struct xgpu_pci_dev *xpdev = dev_get_drvdata(&pdev->dev);
 
@@ -151,43 +153,43 @@ static pci_ers_result_t gpu_pci_slot_reset(struct pci_dev *pdev)
     return PCI_ERS_RESULT_RECOVERED;
 }
 
-static void gpu_pci_error_resume(struct pci_dev *pdev)
+static void xgpu_error_resume(struct pci_dev *pdev)
 {
     struct xgpu_pci_dev *xpdev = dev_get_drvdata(&pdev->dev);
     pr_info("dev 0x%p,0x%p error_resume\n", pdev, xpdev);
 }
 
-static void gpu_pci_reset_prepare(struct pci_dev *pdev)
+static void xgpu_reset_prepare(struct pci_dev *pdev)
 {
     struct xgpu_pci_dev *xpdev = dev_get_drvdata(&pdev->dev);
 
     pr_info("dev 0x%p,0x%p reset_prepare\n", pdev, xpdev);
 }
 
-static void gpu_pci_reset_done(struct pci_dev *pdev)
+static void xgpu_reset_done(struct pci_dev *pdev)
 {
     struct xgpu_pci_dev* xpdev = dev_get_drvdata(&pdev->dev);
 
     pr_info("dev 0x%p,0x%p reset_done\n", pdev, xpdev);
 }
 
-static const struct pci_error_handlers gpu_pci_err_handler = {
-	.error_detected	= gpu_pci_error_detected,
-	.slot_reset     = gpu_pci_slot_reset,
-	.resume         = gpu_pci_error_resume,
-	.reset_prepare  = gpu_pci_reset_prepare,
-	.reset_done	    = gpu_pci_reset_done,
+static const struct pci_error_handlers xgpu_err_handler = {
+	.error_detected	= xgpu_error_detected,
+	.slot_reset     = xgpu_slot_reset,
+	.resume         = xgpu_error_resume,
+	.reset_prepare  = xgpu_reset_prepare,
+	.reset_done     = xgpu_reset_done,
 };
 
-static struct pci_driver gpu_pci_driver = {
+static struct pci_driver xgpu_pci_driver = {
 	.name        = AMD_GPU_DEV_NAME,
 	.id_table    = amd_pci_ids,
 	.probe       = probe_one,
 	.remove      = remove_one,
-	.err_handler = &gpu_pci_err_handler,
+	.err_handler = &xgpu_err_handler,
 };
 
-static int __init gpu_dev_init(void)
+static int __init xgpu_mod_init(void)
 {
     char version[] = DRV_MODULE_DESC ": " AMD_GPU_DEV_NAME " v" DRV_MODULE_VERSION;
     pr_info("%s\n", version);
@@ -198,16 +200,16 @@ static int __init gpu_dev_init(void)
         return rv;
     }
 
-    return pci_register_driver(&gpu_pci_driver);
+    return pci_register_driver(&xgpu_pci_driver);
 }
 
-static void __exit gpu_dev_exit(void)
+static void __exit xgpu_mod_exit(void)
 {
     /* unregister this driver from the PCI bus driver */
     dbg_init("pci_unregister_driver %s\n", AMD_GPU_DEV_NAME);
-    pci_unregister_driver(&gpu_pci_driver);
+    pci_unregister_driver(&xgpu_pci_driver);
     xgpu_cdev_cleanup();
 }
 
-module_init(gpu_dev_init);
-module_exit(gpu_dev_exit);
+module_init(xgpu_mod_init);
+module_exit(xgpu_mod_exit);

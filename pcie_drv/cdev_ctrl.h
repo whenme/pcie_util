@@ -84,4 +84,6 @@ struct xgpu_ioc_info {
 #define IOCTL_XDMA_ADDRMODE_GET	_IOR('q', 5, int)
 #define IOCTL_XDMA_ALIGN_GET	_IOR('q', 6, int)
 
+#define IFWI_MAX_SIZE           64
+
 #endif /* _XDMA_IOCALLS_POSIX_H_ */

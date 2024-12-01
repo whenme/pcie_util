@@ -9,7 +9,7 @@ ccflags-y := -std=gnu99 -Wno-declaration-after-statement
 
 TARGET_MODULE := xgpu
 
-EXTRA_CFLAGS := -I. -D__LIBXDMA_DEBUG__
+EXTRA_CFLAGS := -I. -D__LIBXGPU_DEBUG__
 
 $(TARGET_MODULE)-objs := $(OBJS)
 obj-m := $(TARGET_MODULE).o

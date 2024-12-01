@@ -15,11 +15,29 @@ static int config_kobject(struct xgpu_cdev *xcdev, enum cdev_type type)
     return rv;
 }
 
-int xgpu_open(struct inode *node, struct file *file)
+int xcdev_check(const char *fname, struct xgpu_cdev *xcdev, bool check_engine)
+{
+    struct xgpu_dev *xdev;
+
+    if (!xcdev) {
+        pr_info("%s, xcdev 0x%p.\n", fname, xcdev);
+        return -EINVAL;
+    }
+
+    xdev = xcdev->xdev;
+    if (!xdev) {
+        pr_info("%s, xdev 0x%p.\n", fname, xdev);
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
+int char_open(struct inode *inode, struct file *file)
 {
     struct xgpu_cdev *xcdev;
 
-    xcdev = container_of(node->i_cdev, struct xgpu_cdev, cdev);
+    xcdev = container_of(inode->i_cdev, struct xgpu_cdev, cdev);
 
     /* create a reference to our char device in the opened file */
     file->private_data = xcdev;
@@ -30,7 +48,7 @@ int xgpu_open(struct inode *node, struct file *file)
 /*
  * Called when the device goes from used to unused.
  */
-int xgpu_close(struct inode *inode, struct file *file)
+int char_close(struct inode *inode, struct file *file)
 {
 	struct xgpu_cdev *xcdev = (struct xgpu_cdev *)file->private_data;
     if (!xcdev) {
@@ -188,7 +206,11 @@ fail:
 
 int xgpu_cdev_init(void)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
+    g_xgpu_class = class_create(THIS_MODULE, AMD_GPU_DEV_NAME);
+#else
     g_xgpu_class = class_create(AMD_GPU_DEV_NAME);
+#endif
     if (IS_ERR(g_xgpu_class)) {
         pr_err("%s: failed to create class", AMD_GPU_DEV_NAME);
         return -EINVAL;
