@@ -1,6 +1,6 @@
 
-
 #include "xgpu_cdev.h"
+#include "cdev_ctrl.h"
 
 static struct class *g_xgpu_class;
 struct kmem_cache *cdev_cache;
@@ -8,7 +8,7 @@ struct kmem_cache *cdev_cache;
 static int config_kobject(struct xgpu_cdev *xcdev, enum cdev_type type)
 {
 	struct xgpu_dev *xdev = xcdev->xdev;
-    int rv = kobject_set_name(&xcdev->cdev.kobj, devnode_name[type], xdev->idx);
+    int rv = kobject_set_name(&xcdev->cdev.kobj, ifwi_items[type].devnode_name, xdev->idx);
     if (rv)
         pr_err("%s: type 0x%x, failed %d.\n", __func__, type, rv);
 
@@ -17,14 +17,12 @@ static int config_kobject(struct xgpu_cdev *xcdev, enum cdev_type type)
 
 int xcdev_check(const char *fname, struct xgpu_cdev *xcdev, bool check_engine)
 {
-    struct xgpu_dev *xdev;
-
     if (!xcdev) {
         pr_info("%s, xcdev 0x%p.\n", fname, xcdev);
         return -EINVAL;
     }
 
-    xdev = xcdev->xdev;
+    struct xgpu_dev *xdev = xcdev->xdev;
     if (!xdev) {
         pr_info("%s, xdev 0x%p.\n", fname, xdev);
         return -EINVAL;
@@ -71,16 +69,16 @@ static int create_sys_device(struct xgpu_cdev *xcdev, enum cdev_type type)
 	struct xgpu_dev *xdev = xcdev->xdev;
 
 	xcdev->sys_device = device_create(g_xgpu_class, &xdev->pdev->dev,
-		xcdev->cdevno, NULL, devnode_name[type], xdev->idx, xcdev->bar);
+		xcdev->cdevno, NULL, ifwi_items[type].devnode_name, xdev->idx, xcdev->bar);
 	if (!xcdev->sys_device) {
-		pr_err("device_create(%s) failed\n", devnode_name[type]);
+		pr_err("device_create(%s) failed\n", ifwi_items[type].devnode_name);
 		return -1;
 	}
 
 	return 0;
 }
 
-static int destroy_xcdev(struct xgpu_cdev *cdev)
+int destroy_xcdev(struct xgpu_cdev *cdev)
 {
     if (!cdev) {
         pr_warn("%s: cdev NULL.\n", __func__);
@@ -110,7 +108,7 @@ static int destroy_xcdev(struct xgpu_cdev *cdev)
     return 0;
 }
 
-static int create_xcdev(struct xgpu_pci_dev *xpdev, struct xgpu_cdev *xcdev,
+int create_xcdev(struct xgpu_pci_dev *xpdev, struct xgpu_cdev *xcdev,
 			int bar, enum cdev_type type)
 {
 	int rv;
@@ -170,11 +168,7 @@ unregister_region:
 
 void xpdev_destroy_interfaces(struct xgpu_pci_dev *xpdev)
 {
-    for (enum cdev_type type = 0; type < CHAR_MAX; type++) {
-        int rv = destroy_xcdev(&xpdev->ctrl_cdev[type]);
-	    if (rv < 0)
-            pr_err("failed to destroy device\n");
-    }
+    ifwi_destroy_interfaces(xpdev);
 
     if (xpdev->major) {
         unregister_chrdev_region(MKDEV(xpdev->major, XGPU_MINOR_BASE), XGPU_MINOR_COUNT);
@@ -183,23 +177,14 @@ void xpdev_destroy_interfaces(struct xgpu_pci_dev *xpdev)
 
 int xpdev_create_interfaces(struct xgpu_pci_dev *xpdev)
 {
-    if (!xpdev->xdev) {
-        pr_err("xdev is not initialized");
-        return -1;
-    }
-    pr_warn("%s %d\n", __func__, __LINE__);
-	struct xgpu_dev *xdev = xpdev->xdev;
-	for (enum cdev_type type = 0; type < CHAR_MAX; type++) {
-	    int rv = create_xcdev(xpdev, &xpdev->ctrl_cdev[type], xdev->config_bar_idx+type, type);
-	    if (rv < 0) {
-            pr_err("create_char(ctrl_cdev) failed\n");
-            goto fail;
-        }
+    int ret = ifwi_create_interface(xpdev);
+    if (ret) {
+        goto fail_entry;
     }
 
-    return 0;
+    return ret;
 
-fail:
+fail_entry:
     xpdev_destroy_interfaces(xpdev);
     return -1;
 }

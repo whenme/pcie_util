@@ -48,7 +48,10 @@ static inline int xdev_list_add(struct xgpu_dev *xdev)
 static inline void xdev_list_remove(struct xgpu_dev *xdev)
 {
 	mutex_lock(&xdev_mutex);
-	list_del(&xdev->list_head);
+
+    if (!list_empty(&xdev->list_head)) {
+	    list_del(&xdev->list_head);
+    }
 	mutex_unlock(&xdev_mutex);
 }
 
@@ -75,8 +78,7 @@ static inline int debug_check_dev_hndl(const char *fname, struct pci_dev *pdev,
 
     struct xgpu_dev *xdev = xdev_find_by_pdev(pdev);
     if (!xdev) {
-        pr_info("%s pdev 0x%p, hndl 0x%p, NO match found!\n", fname,
-            pdev, hndl);
+        pr_info("%s pdev 0x%p, hndl 0x%p, NO match found!\n", fname, pdev, hndl);
         return -EINVAL;
     }
     if (xdev != hndl) {
@@ -445,6 +447,7 @@ static int request_regions(struct xgpu_dev *xdev, struct pci_dev *pdev)
     }
 
     dbg_init("%s: mod_name %s\n", __func__, xdev->mod_name);
+#if 0
     int rv = pci_request_regions(pdev, xdev->mod_name);
     /* could not request all regions? */
     if (rv) {
@@ -454,6 +457,17 @@ static int request_regions(struct xgpu_dev *xdev, struct pci_dev *pdev)
     } else {
         xdev->got_regions = 1;
     }
+#endif
+
+    // region 0 is in efifb. it cannot request_region.
+    int rv = pci_request_region(pdev, 2, "region2 memory");
+    if (rv) {
+        pr_warn("fail to request region 2\n");
+        return rv;
+    }
+    rv = pci_request_region(pdev, 5, "region5 memory");
+    if (rv)
+        pr_warn("fail to request region 5\n");
 
     return rv;
 }
@@ -465,13 +479,11 @@ static int set_dma_mask(struct pci_dev *pdev)
 		return -EINVAL;
 	}
 
-	dbg_init("sizeof(dma_addr_t) == %ld\n", sizeof(dma_addr_t));
 	/* 64-bit addressing capability for XDMA? */
 	if (!dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64))) 
 	{
 		/* query for DMA transfer */
 		/* @see Documentation/DMA-mapping.txt */
-		dbg_init("set_dma_mask(64)\n");
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
 		pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
 #endif
@@ -480,7 +492,6 @@ static int set_dma_mask(struct pci_dev *pdev)
 	}
     else if (!dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32))) 
 	{
-		dbg_init("Could not set 64-bit DMA mask.\n");
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
 		pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
 #endif
@@ -612,12 +623,11 @@ free_xdev:
 
 void xgpu_device_close(struct pci_dev *pdev, void *dev_hndl)
 {
-	struct xgpu_dev *xdev = (struct xgpu_dev *)dev_hndl;
-
-	pr_info("%s: pdev 0x%p, xdev 0x%p.\n", __func__, pdev, dev_hndl);
-
 	if (!dev_hndl)
 		return;
+
+	struct xgpu_dev *xdev = (struct xgpu_dev *)dev_hndl;
+	pr_info("%s: pdev 0x%p, xdev 0x%p.\n", __func__, pdev, dev_hndl);
 
 	if (debug_check_dev_hndl(__func__, pdev, dev_hndl) < 0)
 		return;
@@ -654,11 +664,10 @@ void xgpu_device_close(struct pci_dev *pdev, void *dev_hndl)
 
 void xgpu_device_offline(struct pci_dev *pdev, void *dev_hndl)
 {
-	struct xgpu_dev *xdev = (struct xgpu_dev *)dev_hndl;
-
 	if (!dev_hndl)
 		return;
 
+	struct xgpu_dev *xdev = (struct xgpu_dev *)dev_hndl;
 	if (debug_check_dev_hndl(__func__, pdev, dev_hndl) < 0)
 		return;
 
@@ -670,11 +679,10 @@ void xgpu_device_offline(struct pci_dev *pdev, void *dev_hndl)
 
 void xgpu_device_online(struct pci_dev *pdev, void *dev_hndl)
 {
-	struct xgpu_dev *xdev = (struct xgpu_dev *)dev_hndl;
-
 	if (!dev_hndl)
 		return;
 
+	struct xgpu_dev *xdev = (struct xgpu_dev *)dev_hndl;
 	if (debug_check_dev_hndl(__func__, pdev, dev_hndl) < 0)
 		return;
 

@@ -43,11 +43,6 @@ enum cdev_type {
 
     CHAR_MAX
 };
-static const char* const devnode_name[] = {
-    AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/asic",
-    AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/version",
-    AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/sku",
-};
 
 /* PCIe device specific book-keeping */
 #define XDEV_FLAG_OFFLINE	0x1
@@ -97,8 +92,13 @@ struct xgpu_pci_dev {
 	int              instance;	/* instance number */
     int              user_max;
 
-	struct xgpu_cdev ctrl_cdev[CHAR_MAX];
+    struct list_head listHeadIfwi;
 	void *data;
+};
+
+struct xcdev_member {
+    struct xgpu_cdev xcdev;
+    struct list_head entry;
 };
 
 #endif /* ifndef __XGPU_MODULE_H__ */

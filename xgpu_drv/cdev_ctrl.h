@@ -17,15 +17,15 @@
  * the file called "COPYING".
  */
 
-#ifndef _XDMA_IOCALLS_POSIX_H_
-#define _XDMA_IOCALLS_POSIX_H_
+#ifndef _XGPU_IOCALLS_POSIX_H_
+#define _XGPU_IOCALLS_POSIX_H_
 
 #include <linux/ioctl.h>
 
+#include "xgpu_mod.h"
+
 /* Use 'x' as magic number */
 #define XDMA_IOC_MAGIC	'x'
-/* XL OpenCL X->58(ASCII), L->6C(ASCII), O->0 C->C L->6C(ASCII); */
-#define XDMA_XCL_MAGIC 0X586C0C6C
 
 /*
  * S means "Set" through a ptr,
@@ -86,4 +86,19 @@ struct xgpu_ioc_info {
 
 #define IFWI_MAX_SIZE           64
 
-#endif /* _XDMA_IOCALLS_POSIX_H_ */
+typedef struct _ifwi_cdev_node_ {
+    enum cdev_type dev_type;
+    uint32_t       offset, length;
+    char           devnode_name[32];
+}ifwi_cdev_node;
+
+static const ifwi_cdev_node ifwi_items[] = {
+    {CHAR_ASIC,    0,  10, AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/asic"},
+    {CHAR_VERSION, 10, 6,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/version"},
+    {CHAR_SKU,     16, 8,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/sku"}
+};
+
+void ifwi_destroy_interfaces(struct xgpu_pci_dev *xpdev);
+int ifwi_create_interface(struct xgpu_pci_dev *xpdev);
+
+#endif /* _XGPU_IOCALLS_POSIX_H_ */

@@ -26,6 +26,58 @@
 #define xlx_access_ok(X, Y, Z) access_ok(X, Y, Z)
 #endif
 
+void ifwi_destroy_interfaces(struct xgpu_pci_dev *xpdev)
+{
+    struct list_head *cursor;
+
+    if (list_empty(&xpdev->listHeadIfwi)) {
+        pr_info("ifwi interface is empty");
+        return;
+    }
+
+    list_for_each(cursor, &xpdev->listHeadIfwi) {
+        struct xcdev_member *member = list_entry(cursor, struct xcdev_member, entry);
+        if (member && destroy_xcdev(&member->xcdev) < 0) {
+            pr_err("%s: failed to destroy device\n", __func__);
+            return;
+        }
+
+        list_del(cursor);
+        kfree(cursor);
+    }
+}
+
+int ifwi_create_interface(struct xgpu_pci_dev *xpdev)
+{
+    if (!xpdev->xdev) {
+        pr_err("%s: xdev is not initialized", __func__);
+        return -1;
+    }
+
+    for (int ii = 0; ii < sizeof(ifwi_items)/sizeof(ifwi_cdev_node); ii++) {
+        struct xcdev_member *member = kmalloc(sizeof(struct xcdev_member), GFP_KERNEL);
+        if (!member) {
+            pr_err("%s: failed to kmalloc xcdev_member\n", __func__);
+		    goto fail;
+        }
+
+        struct xgpu_dev *xdev = xpdev->xdev;
+        int rv = create_xcdev(xpdev, &member->xcdev, xdev->config_bar_idx + ii, ii);
+        if (rv < 0) {
+            pr_err("%s: create_xcdev failed to device %s\n", __func__, ifwi_items[ii].devnode_name);
+            goto fail;
+        }
+
+        list_add_tail(&member->entry, &xpdev->listHeadIfwi);
+    }
+
+    return 0;
+
+fail:
+    ifwi_destroy_interfaces(xpdev);
+    return -1;
+}
+
 /*
  * character device file operations for control bus (through control bridge)
  */
@@ -33,24 +85,22 @@ static ssize_t char_ctrl_read(struct file *fp, char __user *buf, size_t count,
 		loff_t *pos)
 {
 	struct xgpu_cdev *xcdev = (struct xgpu_cdev *)fp->private_data;
-	struct xgpu_dev *xdev;
 	void __iomem *reg;
-	u32 w;
-	int rv;
 
     char demo_test[] = "demo_test";
     int len = sizeof(demo_test)>count?count:sizeof(demo_test);
     if (*pos >= sizeof(demo_test))
         return 0;
 
-    rv = copy_to_user(buf, demo_test, len);
+    int rv = copy_to_user(buf, demo_test, len);
     *pos += len;
     return len;
 
 	rv = xcdev_check(__func__, xcdev, 0);
 	if (rv < 0)
 		return rv;
-	xdev = xcdev->xdev;
+
+	struct xgpu_dev *xdev = xcdev->xdev;
 
 	/* only 32-bit aligned and 32-bit multiples */
 	if (*pos & 3)
@@ -58,7 +108,7 @@ static ssize_t char_ctrl_read(struct file *fp, char __user *buf, size_t count,
 	/* first address is BAR base plus file position offset */
 	reg = xdev->bar[xcdev->bar] + *pos;
 
-	w = ioread32(reg);
+	u32 w = ioread32(reg);
 	dbg_sg("%s(@%p, count=%ld, pos=%d) value = 0x%08x\n",
 			__func__, reg, (long)count, (int)*pos, w);
 	rv = copy_to_user(buf, &w, 4);
@@ -74,7 +124,6 @@ static ssize_t char_ctrl_write(struct file *file, const char __user *buf,
 			size_t count, loff_t *pos)
 {
 	struct xgpu_cdev *xcdev = (struct xgpu_cdev *)file->private_data;
-	struct xgpu_dev *xdev;
 	void __iomem *reg;
 	u32 w;
 
@@ -83,7 +132,7 @@ static ssize_t char_ctrl_write(struct file *file, const char __user *buf,
         return rv;
     }
 
-	xdev = xcdev->xdev;
+	struct xgpu_dev *xdev = xcdev->xdev;
 
 	/* only 32-bit aligned and 32-bit multiples */
 	if (*pos & 3)
@@ -132,17 +181,15 @@ static long version_ioctl(struct xgpu_cdev *xcdev, void __user *arg)
 
 static long char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	struct xgpu_cdev *xcdev = (struct xgpu_cdev *)filp->private_data;
-	struct xgpu_dev *xdev;
 	struct xgpu_ioc_base ioctl_obj;
-	long result = 0;
-
+	long   result = 0;
+	struct xgpu_cdev* xcdev = (struct xgpu_cdev *)filp->private_data;
     int rv = xcdev_check(__func__, xcdev, 0);
     if (rv < 0) {
         return rv;
     }
 
-	xdev = xcdev->xdev;
+	struct xgpu_dev* xdev = xcdev->xdev;
 	if (!xdev) {
 		pr_info("cmd %u, xdev NULL.\n", cmd);
 		return -EINVAL;
@@ -189,7 +236,6 @@ static long char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long a
 /* maps the PCIe BAR into user space for memory-like access using mmap() */
 static int bridge_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	struct xgpu_dev *xdev;
 	struct xgpu_cdev *xcdev = (struct xgpu_cdev *)file->private_data;
 	unsigned long off, phys;
 	unsigned long vsize, psize;
@@ -197,7 +243,8 @@ static int bridge_mmap(struct file *file, struct vm_area_struct *vma)
     int rv = xcdev_check(__func__, xcdev, 0);
     if (rv < 0)
         return rv;
-    xdev = xcdev->xdev;
+
+    struct xgpu_dev *xdev = xcdev->xdev;
 
 	off = vma->vm_pgoff << PAGE_SHIFT;
 	/* BAR physical address */
@@ -228,7 +275,17 @@ static int bridge_mmap(struct file *file, struct vm_area_struct *vma)
 	 * prevent touching the pages (byte access) for swap-in,
 	 * and prevent the pages from being swapped out
 	 */
-	vma->vm_flags |= VMEM_FLAGS;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+    vm_flags_set(vma, VMEM_FLAGS);
+#elif defined(RHEL_RELEASE_CODE)
+    #if (RHEL_RELEASE_CODE > RHEL_RELEASE_VERSION(9, 4))
+        vm_flags_set(vma, VMEM_FLAGS);
+    #else
+        vma->vm_flags |= VMEM_FLAGS;
+    #endif
+#else
+    vma->vm_flags |= VMEM_FLAGS;
+#endif
 	/* make MMIO accessible to user space */
 	rv = io_remap_pfn_range(vma, vma->vm_start, phys >> PAGE_SHIFT,
 			vsize, vma->vm_page_prot);
