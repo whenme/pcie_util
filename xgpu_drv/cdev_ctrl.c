@@ -49,20 +49,20 @@ void ifwi_destroy_interfaces(struct xgpu_pci_dev *xpdev)
 
 int ifwi_create_interface(struct xgpu_pci_dev *xpdev)
 {
-    if (!xpdev->xdev) {
+    struct xgpu_dev *xdev = xpdev->xdev;
+    if (!xdev) {
         pr_err("%s: xdev is not initialized", __func__);
         return -1;
     }
 
-    for (int ii = 0; ii < sizeof(ifwi_items)/sizeof(ifwi_cdev_node); ii++) {
+    for (int ii = 0; ii < sizeof(ifwi_items)/sizeof(xgpu_cdev_node); ii++) {
         struct xcdev_member *member = kmalloc(sizeof(struct xcdev_member), GFP_KERNEL);
         if (!member) {
             pr_err("%s: failed to kmalloc xcdev_member\n", __func__);
 		    goto fail;
         }
 
-        struct xgpu_dev *xdev = xpdev->xdev;
-        int rv = create_xcdev(xpdev, &member->xcdev, xdev->config_bar_idx + ii, ii);
+        int rv = create_xcdev(xpdev, &member->xcdev, xdev->config_bar_idx + ii, ifwi_items[ii].devId);
         if (rv < 0) {
             pr_err("%s: create_xcdev failed to device %s\n", __func__, ifwi_items[ii].devnode_name);
             goto fail;

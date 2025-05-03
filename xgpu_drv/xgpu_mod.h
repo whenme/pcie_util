@@ -35,14 +35,11 @@ MODULE_LICENSE("Dual BSD/GPL");
 /* SECTION: Preprocessor macros/constants */
 #define XGPU_BAR_NUM (6)
 
-// cdev type and node name
-enum cdev_type {
-    CHAR_ASIC,
-    CHAR_VERSION,
-    CHAR_SKU,
-
-    CHAR_MAX
-};
+typedef struct _xgpu_cdev_node_ {
+    uint32_t  devId;               //16bit(base) + 16bit(id)
+    uint32_t  offset, length;
+    char      devnode_name[24];
+}xgpu_cdev_node;
 
 /* PCIe device specific book-keeping */
 #define XDEV_FLAG_OFFLINE	0x1
@@ -50,7 +47,6 @@ struct xgpu_dev {
 	struct list_head list_head;
 	struct list_head rcu_node;
 
-	unsigned long   magic;		/* structure ID for sanity checks */
 	struct pci_dev* pdev;		/* pci device struct from probe() */
 	int             idx;		/* dev index */
 	const char*     mod_name;	/* name of module owning the dev */
@@ -73,7 +69,6 @@ struct xgpu_dev {
 };
 
 struct xgpu_cdev {
-	unsigned long        magic;		/* structure ID for sanity checks */
 	struct xgpu_pci_dev* xpdev;
 	struct xgpu_dev*     xdev;
 	dev_t                cdevno;	/* character device major:minor */
@@ -85,7 +80,6 @@ struct xgpu_cdev {
 };
 
 struct xgpu_pci_dev {
-	unsigned long    magic;		/* structure ID for sanity checks */
 	struct pci_dev*  pdev;		/* pci device struct from probe() */
 	struct xgpu_dev* xdev;
 	int              major;		/* major number */
@@ -93,6 +87,7 @@ struct xgpu_pci_dev {
     int              user_max;
 
     struct list_head listHeadIfwi;
+    struct list_head listHeadConfig;
 	void *data;
 };
 

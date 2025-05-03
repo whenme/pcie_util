@@ -85,17 +85,12 @@ struct xgpu_ioc_info {
 #define IOCTL_XDMA_ALIGN_GET	_IOR('q', 6, int)
 
 #define IFWI_MAX_SIZE           64
+#define BASE_DEV_IFWI           80
 
-typedef struct _ifwi_cdev_node_ {
-    enum cdev_type dev_type;
-    uint32_t       offset, length;
-    char           devnode_name[32];
-}ifwi_cdev_node;
-
-static const ifwi_cdev_node ifwi_items[] = {
-    {CHAR_ASIC,    0,  10, AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/asic"},
-    {CHAR_VERSION, 10, 6,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/version"},
-    {CHAR_SKU,     16, 8,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/sku"}
+static const xgpu_cdev_node ifwi_items[] = {
+    {(BASE_DEV_IFWI<<16)+0, 0,  10, AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/asic"},
+    {(BASE_DEV_IFWI<<16)+1, 10, 6,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/version"},
+    {(BASE_DEV_IFWI<<16)+2, 16, 8,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/sku"}
 };
 
 void ifwi_destroy_interfaces(struct xgpu_pci_dev *xpdev);

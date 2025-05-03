@@ -14,7 +14,7 @@
 
 static unsigned int interrupt_mode;
 module_param(interrupt_mode, uint, 0644);
-MODULE_PARM_DESC(interrupt_mode, "0 - Auto , 1 - MSI, 2 - Legacy, 3 - MSI-x");
+MODULE_PARM_DESC(interrupt_mode, "0-Auto , 1-MSI, 2-Legacy, 3-MSI-x");
 
 /*
  * xgpu device management

@@ -1,16 +1,25 @@
 
 #include "xgpu_cdev.h"
 #include "cdev_ctrl.h"
+#include "cdev_config.h"
 
 static struct class *g_xgpu_class;
 struct kmem_cache *cdev_cache;
 
-static int config_kobject(struct xgpu_cdev *xcdev, enum cdev_type type)
+static int config_kobject(struct xgpu_cdev *xcdev, int devId)
 {
 	struct xgpu_dev *xdev = xcdev->xdev;
-    int rv = kobject_set_name(&xcdev->cdev.kobj, ifwi_items[type].devnode_name, xdev->idx);
+    int id   = devId&0xFFFF;
+    int base = devId >> 16;
+    int rv   = 0;
+
+    if (base == BASE_DEV_IFWI)
+        rv = kobject_set_name(&xcdev->cdev.kobj, ifwi_items[id].devnode_name, xdev->idx);
+    else if (base == BASE_DEV_CONFIG)
+        rv = kobject_set_name(&xcdev->cdev.kobj, config_items[id].devnode_name, xdev->idx);
+
     if (rv)
-        pr_err("%s: type 0x%x, failed %d.\n", __func__, type, rv);
+        pr_err("%s: devId 0x%x, failed %d.\n", __func__, devId, rv);
 
     return rv;
 }
@@ -64,14 +73,23 @@ int char_close(struct inode *inode, struct file *file)
     return 0;
 }
 
-static int create_sys_device(struct xgpu_cdev *xcdev, enum cdev_type type)
+static int create_sys_device(struct xgpu_cdev *xcdev, int devId)
 {
 	struct xgpu_dev *xdev = xcdev->xdev;
+    int id = devId&0xFFFF;
+    //int did = (devId >> 16) + id;
+    int base = devId >> 16;
 
-	xcdev->sys_device = device_create(g_xgpu_class, &xdev->pdev->dev,
-		xcdev->cdevno, NULL, ifwi_items[type].devnode_name, xdev->idx, xcdev->bar);
+    if (base == BASE_DEV_CONFIG) {
+	    xcdev->sys_device = device_create(g_xgpu_class, &xdev->pdev->dev,
+		    xcdev->cdevno, NULL, config_items[id].devnode_name, xdev->idx, xcdev->bar);
+    } else if (base == BASE_DEV_IFWI) {
+        xcdev->sys_device = device_create(g_xgpu_class, &xdev->pdev->dev,
+		    xcdev->cdevno, NULL, ifwi_items[id].devnode_name, xdev->idx, xcdev->bar);
+    }
+
 	if (!xcdev->sys_device) {
-		pr_err("device_create(%s) failed\n", ifwi_items[type].devnode_name);
+		pr_err("device_create(%s) failed\n", ifwi_items[id].devnode_name);
 		return -1;
 	}
 
@@ -109,9 +127,10 @@ int destroy_xcdev(struct xgpu_cdev *cdev)
 }
 
 int create_xcdev(struct xgpu_pci_dev *xpdev, struct xgpu_cdev *xcdev,
-			int bar, enum cdev_type type)
+			int bar, int devId)
 {
 	int rv;
+    int base = devId >> 16;
     struct xgpu_dev *xdev = xpdev->xdev;
     dev_t dev;
 
@@ -133,26 +152,30 @@ int create_xcdev(struct xgpu_pci_dev *xpdev, struct xgpu_cdev *xcdev,
     xcdev->xdev = xdev;
     xcdev->bar = bar;
 
-    rv = config_kobject(xcdev, type);
+    rv = config_kobject(xcdev, devId);
     if (rv < 0)
         return rv;
 
-    cdev_ctrl_init(xcdev);
-    xcdev->cdevno = MKDEV(xpdev->major, type);
+    if (base == BASE_DEV_CONFIG)
+        cdev_config_init(xcdev);
+    else if (base == BASE_DEV_IFWI)
+        cdev_ctrl_init(xcdev);
+
+    xcdev->cdevno = MKDEV(xpdev->major, base + (devId&0xFFFF));
 
     /* bring character device live */
     rv = cdev_add(&xcdev->cdev, xcdev->cdevno, 1);
     if (rv < 0) {
-        pr_err("cdev_add failed %d, type 0x%x.\n", rv, type);
+        pr_err("cdev_add failed %d, devId 0x%x.\n", rv, devId);
         goto unregister_region;
     }
 
-    pr_info("xcdev 0x%p, %u:%u, %s, type 0x%x.\n",
-        xcdev, xpdev->major, type, xcdev->cdev.kobj.name, type);
+    pr_info("xcdev 0x%p, %u:%u, %s, devId 0x%x.\n",
+        xcdev, xpdev->major, devId, xcdev->cdev.kobj.name, devId);
 
     /* create device on our class */
     if (g_xgpu_class) {
-        rv = create_sys_device(xcdev, type);
+        rv = create_sys_device(xcdev, devId);
         if (rv < 0)
             goto del_cdev;
     }
@@ -169,6 +192,7 @@ unregister_region:
 void xpdev_destroy_interfaces(struct xgpu_pci_dev *xpdev)
 {
     ifwi_destroy_interfaces(xpdev);
+    config_destroy_interfaces(xpdev);
 
     if (xpdev->major) {
         unregister_chrdev_region(MKDEV(xpdev->major, XGPU_MINOR_BASE), XGPU_MINOR_COUNT);
@@ -177,14 +201,19 @@ void xpdev_destroy_interfaces(struct xgpu_pci_dev *xpdev)
 
 int xpdev_create_interfaces(struct xgpu_pci_dev *xpdev)
 {
-    int ret = ifwi_create_interface(xpdev);
+    int ret = config_create_interface(xpdev);
     if (ret) {
-        goto fail_entry;
+        goto __fail_entry;
+    }
+
+    ret = ifwi_create_interface(xpdev);
+    if (ret) {
+        goto __fail_entry;
     }
 
     return ret;
 
-fail_entry:
+__fail_entry:
     xpdev_destroy_interfaces(xpdev);
     return -1;
 }
