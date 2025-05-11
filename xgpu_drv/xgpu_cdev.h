@@ -9,8 +9,7 @@
 
 #include "xgpu_mod.h"
 
-#define XGPU_MINOR_BASE  (0)
-#define XGPU_MINOR_COUNT (255)
+#define XGPU_MINOR_COUNT (1024)
 
 int  xgpu_cdev_init(void);
 void xgpu_cdev_cleanup(void);

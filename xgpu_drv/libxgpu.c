@@ -150,13 +150,9 @@ static void unmap_bars(struct xgpu_dev *xdev, struct pci_dev *dev)
 
 static int map_single_bar(struct xgpu_dev *xdev, struct pci_dev *dev, int idx)
 {
-	resource_size_t bar_start;
-	resource_size_t bar_len;
-	resource_size_t map_len;
-
-	bar_start = pci_resource_start(dev, idx);
-	bar_len = pci_resource_len(dev, idx);
-	map_len = bar_len;
+	resource_size_t bar_start = pci_resource_start(dev, idx);
+	resource_size_t bar_len = pci_resource_len(dev, idx);
+	resource_size_t map_len = bar_len;
 
 	xdev->bar[idx] = NULL;
 

@@ -9,14 +9,12 @@ struct kmem_cache *cdev_cache;
 static int config_kobject(struct xgpu_cdev *xcdev, int devId)
 {
 	struct xgpu_dev *xdev = xcdev->xdev;
-    int id   = devId&0xFFFF;
-    int base = devId >> 16;
     int rv   = 0;
 
-    if (base == BASE_DEV_IFWI)
-        rv = kobject_set_name(&xcdev->cdev.kobj, ifwi_items[id].devnode_name, xdev->idx);
-    else if (base == BASE_DEV_CONFIG)
-        rv = kobject_set_name(&xcdev->cdev.kobj, config_items[id].devnode_name, xdev->idx);
+    if (devId < item_config_max)
+        rv = kobject_set_name(&xcdev->cdev.kobj, config_items[devId].devnode_name, xdev->idx);
+    else if (devId < item_ifwi_max)
+        rv = kobject_set_name(&xcdev->cdev.kobj, ifwi_items[devId - item_config_max].devnode_name, xdev->idx);
 
     if (rv)
         pr_err("%s: devId 0x%x, failed %d.\n", __func__, devId, rv);
@@ -76,22 +74,22 @@ int char_close(struct inode *inode, struct file *file)
 static int create_sys_device(struct xgpu_cdev *xcdev, int devId)
 {
 	struct xgpu_dev *xdev = xcdev->xdev;
-    int id = devId&0xFFFF;
-    //int did = (devId >> 16) + id;
-    int base = devId >> 16;
 
-    if (base == BASE_DEV_CONFIG) {
+    if (devId < item_config_max) {
 	    xcdev->sys_device = device_create(g_xgpu_class, &xdev->pdev->dev,
-		    xcdev->cdevno, NULL, config_items[id].devnode_name, xdev->idx, xcdev->bar);
-    } else if (base == BASE_DEV_IFWI) {
+            xcdev->cdevno, NULL, config_items[devId].devnode_name, xdev->idx, xcdev->bar);
+        if (!xcdev->sys_device) {
+            pr_err("device_create(%s) failed\n", config_items[devId].devnode_name);
+            return -1;
+        }
+    } else if (devId < item_ifwi_max) {
         xcdev->sys_device = device_create(g_xgpu_class, &xdev->pdev->dev,
-		    xcdev->cdevno, NULL, ifwi_items[id].devnode_name, xdev->idx, xcdev->bar);
+            xcdev->cdevno, NULL, ifwi_items[devId - item_config_max].devnode_name, xdev->idx, xcdev->bar);
+        if (!xcdev->sys_device) {
+            pr_err("device_create(%s) failed\n", ifwi_items[devId - item_config_max].devnode_name);
+            return -1;
+        }
     }
-
-	if (!xcdev->sys_device) {
-		pr_err("device_create(%s) failed\n", ifwi_items[id].devnode_name);
-		return -1;
-	}
 
 	return 0;
 }
@@ -130,15 +128,13 @@ int create_xcdev(struct xgpu_pci_dev *xpdev, struct xgpu_cdev *xcdev,
 			int bar, int devId)
 {
 	int rv;
-    int base = devId >> 16;
     struct xgpu_dev *xdev = xpdev->xdev;
     dev_t dev;
 
     spin_lock_init(&xcdev->lock);
 	if (!xpdev->major) { /* new instance? */
         /* allocate a dynamically allocated char device node */
-        rv = alloc_chrdev_region(&dev, XGPU_MINOR_BASE,
-                     XGPU_MINOR_COUNT, AMD_GPU_DEV_NAME);
+        rv = alloc_chrdev_region(&dev, 0, XGPU_MINOR_COUNT, AMD_GPU_DEV_NAME);
         if (rv) {
             pr_err("unable to allocate cdev region %d.\n", rv);
             return rv;
@@ -156,12 +152,12 @@ int create_xcdev(struct xgpu_pci_dev *xpdev, struct xgpu_cdev *xcdev,
     if (rv < 0)
         return rv;
 
-    if (base == BASE_DEV_CONFIG)
+    if (devId < item_config_max)
         cdev_config_init(xcdev);
-    else if (base == BASE_DEV_IFWI)
+    else if (devId < item_ifwi_max)
         cdev_ctrl_init(xcdev);
 
-    xcdev->cdevno = MKDEV(xpdev->major, base + (devId&0xFFFF));
+    xcdev->cdevno = MKDEV(xpdev->major, devId);
 
     /* bring character device live */
     rv = cdev_add(&xcdev->cdev, xcdev->cdevno, 1);
@@ -195,7 +191,7 @@ void xpdev_destroy_interfaces(struct xgpu_pci_dev *xpdev)
     config_destroy_interfaces(xpdev);
 
     if (xpdev->major) {
-        unregister_chrdev_region(MKDEV(xpdev->major, XGPU_MINOR_BASE), XGPU_MINOR_COUNT);
+        unregister_chrdev_region(MKDEV(xpdev->major, 0), XGPU_MINOR_COUNT);
     }
 }
 

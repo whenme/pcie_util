@@ -23,6 +23,7 @@
 #include <linux/ioctl.h>
 
 #include "xgpu_mod.h"
+#include "cdev_config.h"
 
 /* Use 'x' as magic number */
 #define XDMA_IOC_MAGIC	'x'
@@ -84,14 +85,14 @@ struct xgpu_ioc_info {
 #define IOCTL_XDMA_ADDRMODE_GET	_IOR('q', 5, int)
 #define IOCTL_XDMA_ALIGN_GET	_IOR('q', 6, int)
 
-#define IFWI_MAX_SIZE           64
-#define BASE_DEV_IFWI           80
 
 static const xgpu_cdev_node ifwi_items[] = {
-    {(BASE_DEV_IFWI<<16)+0, 0,  10, AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/asic"},
-    {(BASE_DEV_IFWI<<16)+1, 10, 6,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/version"},
-    {(BASE_DEV_IFWI<<16)+2, 16, 8,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/sku"}
+    {item_config_max, 0,  10, AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/asic"},
+    {item_config_max+1, 10, 6,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/version"},
+    {item_config_max+2, 16, 8,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/sku"}
 };
+
+static const int item_ifwi_max = item_config_max + sizeof(ifwi_items)/sizeof(xgpu_cdev_node);
 
 void ifwi_destroy_interfaces(struct xgpu_pci_dev *xpdev);
 int ifwi_create_interface(struct xgpu_pci_dev *xpdev);

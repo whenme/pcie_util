@@ -259,9 +259,7 @@ static int bridge_mmap(struct file *file, struct vm_area_struct *vma)
 	dbg_sg("mmap(): xdev = 0x%p\n", xdev);
 	dbg_sg("mmap(): pci_dev = 0x%08lx\n", (unsigned long)xdev->pdev);
 	dbg_sg("off = 0x%lx, vsize 0x%lu, psize 0x%lu.\n", off, vsize, psize);
-	dbg_sg("start = 0x%llx\n",
-		(unsigned long long)pci_resource_start(xdev->pdev,
-		xcdev->bar));
+	dbg_sg("start = 0x%llx\n", (u64)pci_resource_start(xdev->pdev, xcdev->bar));
 	dbg_sg("phys = 0x%lx\n", phys);
 
 	if (vsize > psize)

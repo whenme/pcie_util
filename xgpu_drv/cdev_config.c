@@ -4,7 +4,7 @@
 #include "xgpu_cdev.h"
 #include "libxgpu.h"
 
-#define PCI_CONFIG_SIZE    256
+#define PCI_CONFIG_SIZE    64
 uint8_t config_data[PCI_CONFIG_SIZE];
 
 void config_destroy_interfaces(struct xgpu_pci_dev *xpdev)
@@ -36,7 +36,7 @@ int config_create_interface(struct xgpu_pci_dev *xpdev)
         return -1;
     }
 
-    for (int ii = 0; ii < sizeof(config_items)/sizeof(xgpu_cdev_node); ii++) {
+    for (int ii = 0; ii < item_config_max; ii++) {
         struct xcdev_member *member = kmalloc(sizeof(struct xcdev_member), GFP_KERNEL);
         if (!member) {
             pr_err("%s: failed to kmalloc xcdev_member\n", __func__);
@@ -62,15 +62,70 @@ __fail_config:
 static ssize_t char_config_read(struct file *fp, char __user *buf, size_t count,
                                 loff_t *pos)
 {
+    struct xgpu_cdev *xcdev = (struct xgpu_cdev *)fp->private_data;
+    struct pci_dev *pdev = xcdev->xdev->pdev;
+    uint32_t val = 0, length = 0;
     int ret;
+    char bufStr[16] = {};
 
-    ret = copy_to_user(buf, config_data, 4);
-    if (ret < 0) {
-        pr_err("%s: failed to copy to user. ret=%d", __func__, ret);
-    } else {
-        pr_info("%s: success to copy %d byte to user!", __func__, ret);
+    //length <= 4, return ascii hex string
+    //length > 4, return binary value
+    for (int ii = 0; ii < item_config_max; ii++) {
+        if (MINOR(xcdev->cdevno) == config_items[ii].devId) {
+            length = config_items[ii].length;
+            switch (length) {
+            case 1:
+                pci_read_config_byte(pdev, config_items[ii].offset, (u8*)&val);
+                break;
+            case 2:
+                pci_read_config_word(pdev, config_items[ii].offset, (u16*)&val);
+                break;
+            case 3:
+                pci_read_config_word(pdev, config_items[ii].offset, (u16*)&val);
+                pci_read_config_byte(pdev, config_items[ii].offset+2, (u8*)(&val+2));
+                break;
+            case 4:
+                pci_read_config_dword(pdev, config_items[ii].offset, &val);
+                break;
+            default:
+                if (*pos >= PCI_CONFIG_SIZE)
+                    return 0;
+                if (*pos + count > PCI_CONFIG_SIZE) {
+                    int size = PCI_CONFIG_SIZE - *pos;
+                    count = (size > 0) ? size : 0;
+                }
+                break;
+            }
+        }
     }
 
+    if (length <= 4) {
+        if (*pos > 0)
+            return 0;
+
+        sprintf(bufStr, "0x%x\n", val);
+        length = strlen(bufStr);
+        ret = copy_to_user(buf, bufStr, length);
+        if (ret) {
+            pr_info("%s: fail copy_to_user %d", __func__, ret);
+            return -EIO;
+        } else {
+            *pos += length;
+            return length;
+        }
+    } else if (length > 4) {
+        if (!count || *pos >= PCI_CONFIG_SIZE)
+            return 0;
+
+        pr_info("%s: read %ld bytes", __func__, count);
+        ret = copy_to_user(buf, config_data+*pos, count);
+        if (ret) {
+            pr_info("%s: fail copy_to_user %d", __func__, ret);
+            return -EIO;
+        } else {
+            return count;
+        }
+    }
     return ret;
 }
 
@@ -94,18 +149,10 @@ static const struct file_operations config_fops = {
 void cdev_config_init(struct xgpu_cdev *xcdev)
 {
     struct pci_dev* pdev = xcdev->xdev->pdev;
-    char *pbuf = config_data;
 
 	cdev_init(&xcdev->cdev, &config_fops);
 
-    for (int ii = 0; ii < PCI_CONFIG_SIZE/4; ii++) {
-        pci_read_config_dword(pdev, ii, (uint32_t *)pbuf);
-        pbuf += 4;
-    }
-
-    pbuf = config_data;
-    for (int ii = 0; ii < PCI_CONFIG_SIZE/16; ii += 16) {
-        printk("%08x %08x %08x %08x \n", (uint32_t)(*(pbuf+ii)), (uint32_t)(*(pbuf+ii+4)),
-               (uint32_t)(*(pbuf+ii+8)), (uint32_t)(*(pbuf+ii+12)));
-    }
+    char *pbuf = config_data;
+    for (int ii = 0; ii < PCI_CONFIG_SIZE; ii++)
+        pci_read_config_byte(pdev, ii, pbuf++);
 }
