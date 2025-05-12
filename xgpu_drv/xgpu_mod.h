@@ -24,7 +24,6 @@
 	((DRV_MOD_MAJOR)*1000 + (DRV_MOD_MINOR)*100 + DRV_MOD_PATCHLEVEL)
 
 #define AMD_GPU_DEV_NAME     "xgpu"
-#define AMD_IFWI_DEV_NAME    "ifwi"
 #define DRV_MODULE_DESC      "Gpu Reference Driver"
 
 MODULE_AUTHOR("whenme");
@@ -33,7 +32,8 @@ MODULE_VERSION(DRV_MODULE_VERSION);
 MODULE_LICENSE("Dual BSD/GPL");
 
 /* SECTION: Preprocessor macros/constants */
-#define XGPU_BAR_NUM (6)
+#define XGPU_BAR_NUM   (6)
+#define LIST_HEAD_NUM  (3)
 
 typedef struct _xgpu_cdev_node_ {
     uint32_t  devId;               //16bit(base) + 16bit(id)
@@ -86,9 +86,8 @@ struct xgpu_pci_dev {
 	int              instance;	/* instance number */
     int              user_max;
 
-    struct list_head listHeadIfwi;
-    struct list_head listHeadConfig;
-	void *data;
+    struct list_head listHead[LIST_HEAD_NUM];
+    void *data;
 };
 
 struct xcdev_member {

@@ -583,8 +583,10 @@ void *xgpu_device_open(const char *mname, struct pci_dev *pdev, int *user_max)
         goto err_mask;
 */
     rv = enable_msi_msix(xdev, pdev);
-    if (rv < 0)
-        goto err_engines;
+    if (rv < 0) {
+        pr_warn("%s: fail to enable msi/msix", __func__);
+        //goto err_engines;
+    }
 /*
     rv = irq_setup(xdev, pdev);
     if (rv < 0)

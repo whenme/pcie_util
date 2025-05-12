@@ -1,24 +1,6 @@
-/*
- * This file is part of the Xilinx DMA IP Core driver for Linux
- *
- * Copyright (c) 2016-present,  Xilinx, Inc.
- * All rights reserved.
- *
- * This source code is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * The full GNU General Public License is included in this distribution in
- * the file called "COPYING".
- */
 
-#ifndef _XGPU_IOCALLS_POSIX_H_
-#define _XGPU_IOCALLS_POSIX_H_
+#ifndef _XGPU_CDEV_CTRL_H_
+#define _XGPU_CDEV_CTRL_H_
 
 #include <linux/ioctl.h>
 
@@ -76,15 +58,11 @@ struct xgpu_ioc_info {
 };
 
 /* IOCTL codes */
-#define XDMA_IOCINFO		_IOWR(XDMA_IOC_MAGIC, XDMA_IOC_INFO, \
-					struct xgpu_ioc_info)
-#define XDMA_IOCOFFLINE		_IO(XDMA_IOC_MAGIC, XDMA_IOC_OFFLINE)
-#define XDMA_IOCONLINE		_IO(XDMA_IOC_MAGIC, XDMA_IOC_ONLINE)
+#define XDMA_IOCINFO    _IOWR(XDMA_IOC_MAGIC, XDMA_IOC_INFO, struct xgpu_ioc_info)
+#define XDMA_IOCOFFLINE _IO(XDMA_IOC_MAGIC, XDMA_IOC_OFFLINE)
+#define XDMA_IOCONLINE  _IO(XDMA_IOC_MAGIC, XDMA_IOC_ONLINE)
 
-#define IOCTL_XDMA_ADDRMODE_SET	_IOW('q', 4, int)
-#define IOCTL_XDMA_ADDRMODE_GET	_IOR('q', 5, int)
-#define IOCTL_XDMA_ALIGN_GET	_IOR('q', 6, int)
-
+#define AMD_IFWI_DEV_NAME    "ifwi"
 
 static const xgpu_cdev_node ifwi_items[] = {
     {item_config_max, 0,  10, AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/asic"},
@@ -93,8 +71,5 @@ static const xgpu_cdev_node ifwi_items[] = {
 };
 
 static const int item_ifwi_max = item_config_max + sizeof(ifwi_items)/sizeof(xgpu_cdev_node);
-
-void ifwi_destroy_interfaces(struct xgpu_pci_dev *xpdev);
-int ifwi_create_interface(struct xgpu_pci_dev *xpdev);
 
 #endif /* _XGPU_IOCALLS_POSIX_H_ */

@@ -17,7 +17,7 @@ static const struct pci_device_id amd_pci_ids[] = {
     { PCI_DEVICE(0x1002, 0x743f), }, //nv32
     { PCI_DEVICE(0x1002, 0x746f), }, //nv48
     { PCI_DEVICE(0x1002, 0x15bf), }, //phx
-
+    { PCI_DEVICE(0x1002, 0x164e), }, //rpl
     {0,}
 };
 MODULE_DEVICE_TABLE(pci, amd_pci_ids);
@@ -61,8 +61,9 @@ static int probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
     if (!xpdev)
         return -ENOMEM;
 
-    INIT_LIST_HEAD(&xpdev->listHeadConfig);
-    INIT_LIST_HEAD(&xpdev->listHeadIfwi);
+    for (int ii = 0; ii < LIST_HEAD_NUM; ii++) {
+        INIT_LIST_HEAD(&xpdev->listHead[ii]);
+    }
 
     void *hndl = xgpu_device_open(AMD_GPU_DEV_NAME, pdev, &xpdev->user_max);
     if (!hndl) {

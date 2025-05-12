@@ -2,7 +2,7 @@
 # Full KVERSION used to find system build sources
 KVERSION ?= $(shell uname -r)
 
-SOURCES := xgpu_mod.c xgpu_cdev.c libxgpu.c cdev_ctrl.c cdev_config.c
+SOURCES := xgpu_mod.c xgpu_cdev.c libxgpu.c cdev_ctrl.c cdev_config.c cdev_register.c
 OBJS    := $(SOURCES:.c=.o)
 
 ccflags-y := -std=gnu99 -Wno-declaration-after-statement

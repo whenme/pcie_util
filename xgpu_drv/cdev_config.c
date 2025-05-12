@@ -4,60 +4,7 @@
 #include "xgpu_cdev.h"
 #include "libxgpu.h"
 
-#define PCI_CONFIG_SIZE    64
 uint8_t config_data[PCI_CONFIG_SIZE];
-
-void config_destroy_interfaces(struct xgpu_pci_dev *xpdev)
-{
-    struct list_head *cursor;
-
-    if (list_empty(&xpdev->listHeadConfig)) {
-        pr_info("ifwi interface is empty");
-        return;
-    }
-
-    list_for_each(cursor, &xpdev->listHeadConfig) {
-        struct xcdev_member *member = list_entry(cursor, struct xcdev_member, entry);
-        if (member && destroy_xcdev(&member->xcdev) < 0) {
-            pr_err("%s: failed to destroy device\n", __func__);
-            return;
-        }
-
-        list_del(cursor);
-        kfree(cursor);
-    }
-}
-
-int config_create_interface(struct xgpu_pci_dev *xpdev)
-{
-    struct xgpu_dev *xdev = xpdev->xdev;
-    if (!xdev) {
-        pr_err("%s: xdev is not initialized", __func__);
-        return -1;
-    }
-
-    for (int ii = 0; ii < item_config_max; ii++) {
-        struct xcdev_member *member = kmalloc(sizeof(struct xcdev_member), GFP_KERNEL);
-        if (!member) {
-            pr_err("%s: failed to kmalloc xcdev_member\n", __func__);
-		    goto __fail_config;
-        }
-
-        int rv = create_xcdev(xpdev, &member->xcdev, xdev->config_bar_idx + ii, config_items[ii].devId);
-        if (rv < 0) {
-            pr_err("%s: create_xcdev failed to device %s\n", __func__, config_items[ii].devnode_name);
-            goto __fail_config;
-        }
-
-        list_add_tail(&member->entry, &xpdev->listHeadConfig);
-    }
-
-    return 0;
-
-__fail_config:
-    config_destroy_interfaces(xpdev);
-    return -1;
-}
 
 static ssize_t char_config_read(struct file *fp, char __user *buf, size_t count,
                                 loff_t *pos)
@@ -81,15 +28,17 @@ static ssize_t char_config_read(struct file *fp, char __user *buf, size_t count,
                 pci_read_config_word(pdev, config_items[ii].offset, (u16*)&val);
                 break;
             case 3:
-                pci_read_config_word(pdev, config_items[ii].offset, (u16*)&val);
+                pci_read_config_byte(pdev, config_items[ii].offset, (u8*)&val);
+                pci_read_config_byte(pdev, config_items[ii].offset+1, (u8*)(&val+1));
                 pci_read_config_byte(pdev, config_items[ii].offset+2, (u8*)(&val+2));
                 break;
             case 4:
                 pci_read_config_dword(pdev, config_items[ii].offset, &val);
                 break;
             default:
-                if (*pos >= PCI_CONFIG_SIZE)
+                if (*pos >= PCI_CONFIG_SIZE) {
                     return 0;
+                }
                 if (*pos + count > PCI_CONFIG_SIZE) {
                     int size = PCI_CONFIG_SIZE - *pos;
                     count = (size > 0) ? size : 0;

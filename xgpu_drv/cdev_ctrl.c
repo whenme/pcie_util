@@ -26,77 +26,16 @@
 #define xlx_access_ok(X, Y, Z) access_ok(X, Y, Z)
 #endif
 
-void ifwi_destroy_interfaces(struct xgpu_pci_dev *xpdev)
-{
-    struct list_head *cursor;
-
-    if (list_empty(&xpdev->listHeadIfwi)) {
-        pr_info("ifwi interface is empty");
-        return;
-    }
-
-    list_for_each(cursor, &xpdev->listHeadIfwi) {
-        struct xcdev_member *member = list_entry(cursor, struct xcdev_member, entry);
-        if (member && destroy_xcdev(&member->xcdev) < 0) {
-            pr_err("%s: failed to destroy device\n", __func__);
-            return;
-        }
-
-        list_del(cursor);
-        kfree(cursor);
-    }
-}
-
-int ifwi_create_interface(struct xgpu_pci_dev *xpdev)
-{
-    struct xgpu_dev *xdev = xpdev->xdev;
-    if (!xdev) {
-        pr_err("%s: xdev is not initialized", __func__);
-        return -1;
-    }
-
-    for (int ii = 0; ii < sizeof(ifwi_items)/sizeof(xgpu_cdev_node); ii++) {
-        struct xcdev_member *member = kmalloc(sizeof(struct xcdev_member), GFP_KERNEL);
-        if (!member) {
-            pr_err("%s: failed to kmalloc xcdev_member\n", __func__);
-		    goto fail;
-        }
-
-        int rv = create_xcdev(xpdev, &member->xcdev, xdev->config_bar_idx + ii, ifwi_items[ii].devId);
-        if (rv < 0) {
-            pr_err("%s: create_xcdev failed to device %s\n", __func__, ifwi_items[ii].devnode_name);
-            goto fail;
-        }
-
-        list_add_tail(&member->entry, &xpdev->listHeadIfwi);
-    }
-
-    return 0;
-
-fail:
-    ifwi_destroy_interfaces(xpdev);
-    return -1;
-}
-
 /*
  * character device file operations for control bus (through control bridge)
  */
 static ssize_t char_ctrl_read(struct file *fp, char __user *buf, size_t count,
-		loff_t *pos)
+                              loff_t *pos)
 {
-	struct xgpu_cdev *xcdev = (struct xgpu_cdev *)fp->private_data;
-	void __iomem *reg;
+    struct xgpu_cdev *xcdev = (struct xgpu_cdev *)fp->private_data;
+    void __iomem *reg;
 
-    char demo_test[] = "demo_test";
-    int len = sizeof(demo_test)>count?count:sizeof(demo_test);
-    if (*pos >= sizeof(demo_test))
-        return 0;
-
-    int rv = copy_to_user(buf, demo_test, len);
-    *pos += len;
-    return len;
-
-	rv = xcdev_check(__func__, xcdev, 0);
+	int rv = xcdev_check(__func__, xcdev, 0);
 	if (rv < 0)
 		return rv;
 
@@ -108,24 +47,23 @@ static ssize_t char_ctrl_read(struct file *fp, char __user *buf, size_t count,
 	/* first address is BAR base plus file position offset */
 	reg = xdev->bar[xcdev->bar] + *pos;
 
-	u32 w = ioread32(reg);
+	u32 val = ioread32(reg);
 	dbg_sg("%s(@%p, count=%ld, pos=%d) value = 0x%08x\n",
-			__func__, reg, (long)count, (int)*pos, w);
-	rv = copy_to_user(buf, &w, 4);
+			__func__, reg, (long)count, (int)*pos, val);
+	rv = copy_to_user(buf, &val, 4);
 	if (rv)
 		dbg_sg("Copy to userspace failed but continuing\n");
 
 	*pos += 4;
 	return 4;
-
 }
 
 static ssize_t char_ctrl_write(struct file *file, const char __user *buf,
-			size_t count, loff_t *pos)
+                               size_t count, loff_t *pos)
 {
 	struct xgpu_cdev *xcdev = (struct xgpu_cdev *)file->private_data;
 	void __iomem *reg;
-	u32 w;
+	u32 val;
 
     int rv = xcdev_check(__func__, xcdev, 0);
     if (rv < 0) {
@@ -140,14 +78,14 @@ static ssize_t char_ctrl_write(struct file *file, const char __user *buf,
 
 	/* first address is BAR base plus file position offset */
 	reg = xdev->bar[xcdev->bar] + *pos;
-	rv = copy_from_user(&w, buf, 4);
+	rv = copy_from_user(&val, buf, 4);
 	if (rv)
 		pr_info("copy from user failed %d/4, but continuing.\n", rv);
 
 	dbg_sg("%s(0x%08x @%p, count=%ld, pos=%d)\n",
-			__func__, w, reg, (long)count, (int)*pos);
-	//write_register(w, reg);
-	iowrite32(w, reg);
+			__func__, val, reg, (long)count, (int)*pos);
+	//write_register(val, reg);
+	iowrite32(val, reg);
 	*pos += 4;
 	return 4;
 }
@@ -156,9 +94,8 @@ static long version_ioctl(struct xgpu_cdev *xcdev, void __user *arg)
 {
 	struct xgpu_ioc_info obj;
 	struct xgpu_dev *xdev = xcdev->xdev;
-	int rv;
 
-	rv = copy_from_user((void *)&obj, arg, sizeof(struct xgpu_ioc_info));
+	int rv = copy_from_user((void *)&obj, arg, sizeof(struct xgpu_ioc_info));
 	if (rv) {
 		pr_info("copy from user failed %d/%ld.\n",
 			rv, sizeof(struct xgpu_ioc_info));
