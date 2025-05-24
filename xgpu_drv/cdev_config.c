@@ -11,47 +11,44 @@ static ssize_t char_config_read(struct file *fp, char __user *buf, size_t count,
 {
     struct xgpu_cdev *xcdev = (struct xgpu_cdev *)fp->private_data;
     struct pci_dev *pdev = xcdev->xdev->pdev;
-    uint32_t val = 0, length = 0;
     int ret;
-    char bufStr[16] = {};
+    uint8_t dat[3];
 
     //length <= 4, return ascii hex string
     //length > 4, return binary value
-    for (int ii = 0; ii < item_config_max; ii++) {
-        if (MINOR(xcdev->cdevno) == config_items[ii].devId) {
-            length = config_items[ii].length;
-            switch (length) {
-            case 1:
-                pci_read_config_byte(pdev, config_items[ii].offset, (u8*)&val);
-                break;
-            case 2:
-                pci_read_config_word(pdev, config_items[ii].offset, (u16*)&val);
-                break;
-            case 3:
-                pci_read_config_byte(pdev, config_items[ii].offset, (u8*)&val);
-                pci_read_config_byte(pdev, config_items[ii].offset+1, (u8*)(&val+1));
-                pci_read_config_byte(pdev, config_items[ii].offset+2, (u8*)(&val+2));
-                break;
-            case 4:
-                pci_read_config_dword(pdev, config_items[ii].offset, &val);
-                break;
-            default:
-                if (*pos >= PCI_CONFIG_SIZE) {
-                    return 0;
-                }
-                if (*pos + count > PCI_CONFIG_SIZE) {
-                    int size = PCI_CONFIG_SIZE - *pos;
-                    count = (size > 0) ? size : 0;
-                }
-                break;
-            }
+    int loc = MINOR(xcdev->cdevno);
+    if (loc >= item_config_max) {
+        pr_err("%s: invalid index of device file %d", __func__, loc);
+        return -EINVAL;
+    }
+
+    uint32_t val = 0;
+    uint32_t length = config_items[loc].length;
+    switch (length) {
+    case 1:
+        pci_read_config_byte(pdev, config_items[loc].offset, (u8*)&val);
+        break;
+    case 2:
+        pci_read_config_word(pdev, config_items[loc].offset, (u16*)&val);
+        break;
+    case 3:
+        for (int ii = 0; ii < 3; ii++) {
+            pci_read_config_byte(pdev, config_items[loc].offset+ii, dat+ii);
         }
+        val = (dat[2]<<16) + (dat[1]<<8) + dat[0];
+        break;
+    case 4:
+        pci_read_config_dword(pdev, config_items[loc].offset, &val);
+        break;
+    default:
+        break;
     }
 
     if (length <= 4) {
         if (*pos > 0)
             return 0;
 
+        char bufStr[16] = {};
         sprintf(bufStr, "0x%x\n", val);
         length = strlen(bufStr);
         ret = copy_to_user(buf, bufStr, length);
@@ -63,25 +60,83 @@ static ssize_t char_config_read(struct file *fp, char __user *buf, size_t count,
             return length;
         }
     } else if (length > 4) {
-        if (!count || *pos >= PCI_CONFIG_SIZE)
+        if (*pos + count > PCI_CONFIG_SIZE) {
+            int size = PCI_CONFIG_SIZE - *pos;
+            count = (size > 0) ? size : 0;
+        }
+        if (!count || *pos >= count)
             return 0;
 
-        pr_info("%s: read %ld bytes", __func__, count);
+        pr_info("%s: read %ld bytes pos %lld", __func__, count, *pos);
         ret = copy_to_user(buf, config_data+*pos, count);
         if (ret) {
             pr_info("%s: fail copy_to_user %d", __func__, ret);
             return -EIO;
         } else {
+            *pos += count;
             return count;
         }
     }
     return ret;
 }
 
-static ssize_t char_config_write(struct file *file, const char __user *buf,
-                               size_t count, loff_t *pos)
+static ssize_t char_config_write(struct file *fp, const char __user *buf,
+                                 size_t count, loff_t *pos)
 {
-    return 0;
+    struct xgpu_cdev *xcdev = (struct xgpu_cdev *)fp->private_data;
+    struct pci_dev *pdev = xcdev->xdev->pdev;
+    //int ret;
+
+    //length <= 4, return ascii hex string
+    //length > 4, return binary value
+    int loc = MINOR(xcdev->cdevno);
+    if (loc >= item_config_max) {
+        pr_err("%s: invalid index of device file %d", __func__, loc);
+        return -EINVAL;
+    }
+
+    uint32_t val = 0;
+    uint32_t length = config_items[loc].length;
+    if (*pos >= length)
+        return 0;
+
+    switch (length) {
+    case 1:
+        if (copy_from_user(&val, buf, 1)) {
+            pr_err("%s: fail copy_from_user for 1 byte", __func__);
+            return -EINVAL;
+        }
+        pci_write_config_byte(pdev, config_items[loc].offset, (uint8_t)val);
+        break;
+    case 2:
+        if (copy_from_user(&val, buf, 2)) {
+            pr_err("%s: fail copy_from_user for 2 byte", __func__);
+            return -EINVAL;
+        }
+        pci_write_config_word(pdev, config_items[loc].offset, (uint16_t)val);
+        break;
+    case 3:
+        if (copy_from_user(&val, buf, 3)) {
+            pr_err("%s: fail copy_from_user for 3 byte", __func__);
+            return -EINVAL;
+        }
+        for (int ii = 0; ii < 3; ii++) {
+            pci_write_config_byte(pdev, config_items[loc].offset+ii, (uint8_t)((val>>(ii*8))&0xFF));
+        }
+        break;
+    case 4:
+        if (copy_from_user(&val, buf, 4)) {
+            pr_err("%s: fail copy_from_user for 4 byte", __func__);
+            return -EINVAL;
+        }
+        pci_read_config_dword(pdev, config_items[loc].offset, &val);
+        break;
+    default:
+        break;
+    }
+
+    *pos += length;
+    return length;
 }
 
 /*

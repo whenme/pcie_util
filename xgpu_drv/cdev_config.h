@@ -5,7 +5,7 @@
 
 #include "xgpu_mod.h"
 
-#define PCI_CONFIG_SIZE    64
+#define PCI_CONFIG_SIZE    128
 
 static const xgpu_cdev_node config_items[] = {
     {0, 0, PCI_CONFIG_SIZE, AMD_GPU_DEV_NAME "%d/config"},

@@ -19,3 +19,4 @@ modules.order
 Module.symvers
 
 build
+db32
