@@ -11,11 +11,9 @@ static ssize_t char_config_read(struct file *fp, char __user *buf, size_t count,
 {
     struct xgpu_cdev *xcdev = (struct xgpu_cdev *)fp->private_data;
     struct pci_dev *pdev = xcdev->xdev->pdev;
-    int ret;
+    int ret = 0;
     uint8_t dat[3];
 
-    //length <= 4, return ascii hex string
-    //length > 4, return binary value
     int loc = MINOR(xcdev->cdevno);
     if (loc >= item_config_max) {
         pr_err("%s: invalid index of device file %d", __func__, loc);
@@ -48,10 +46,7 @@ static ssize_t char_config_read(struct file *fp, char __user *buf, size_t count,
         if (*pos > 0)
             return 0;
 
-        char bufStr[16] = {};
-        sprintf(bufStr, "0x%x\n", val);
-        length = strlen(bufStr);
-        ret = copy_to_user(buf, bufStr, length);
+        ret = copy_to_user(buf, &val, length);
         if (ret) {
             pr_info("%s: fail copy_to_user %d", __func__, ret);
             return -EIO;
@@ -85,10 +80,7 @@ static ssize_t char_config_write(struct file *fp, const char __user *buf,
 {
     struct xgpu_cdev *xcdev = (struct xgpu_cdev *)fp->private_data;
     struct pci_dev *pdev = xcdev->xdev->pdev;
-    //int ret;
 
-    //length <= 4, return ascii hex string
-    //length > 4, return binary value
     int loc = MINOR(xcdev->cdevno);
     if (loc >= item_config_max) {
         pr_err("%s: invalid index of device file %d", __func__, loc);
@@ -140,7 +132,7 @@ static ssize_t char_config_write(struct file *fp, const char __user *buf,
 }
 
 /*
- * character device file operations for control bus (through control bridge)
+ * character device file operations
  */
 static const struct file_operations config_fops = {
 	.owner = THIS_MODULE,

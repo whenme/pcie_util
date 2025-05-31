@@ -38,7 +38,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 typedef struct _xgpu_cdev_node_ {
     uint32_t  devId;               //16bit(base) + 16bit(id)
     uint32_t  offset, length;
-    char      devnode_name[24];
+    char      devnode_name[32];
 }xgpu_cdev_node;
 
 /* PCIe device specific book-keeping */

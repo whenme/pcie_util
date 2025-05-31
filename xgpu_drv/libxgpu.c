@@ -602,7 +602,7 @@ void *xgpu_device_open(const char *mname, struct pci_dev *pdev, int *user_max)
 
 //err_msix:
 //    disable_msi_msix(xdev, pdev);
-err_engines:
+//err_engines:
 	//remove_engines(xdev);
 err_mask:
     unmap_bars(xdev, pdev);

@@ -3,6 +3,8 @@
 #include "xgpu_cdev.h"
 #include "libxgpu.h"
 
+static void __iomem *pcimap_addr = NULL;
+
 static ssize_t char_register_read(struct file *fp, char __user *buf, size_t count,
                                   loff_t *pos)
 {
@@ -16,7 +18,6 @@ static ssize_t char_register_read(struct file *fp, char __user *buf, size_t coun
         return ret;
     }
 
-    struct xgpu_dev *xdev = xcdev->xdev;
     int loc = MINOR(xcdev->cdevno);
     if (loc < item_ifwi_max || loc > item_register_max) {
         pr_err("%s: invalid index of device file %d", __func__, loc);
@@ -24,21 +25,14 @@ static ssize_t char_register_read(struct file *fp, char __user *buf, size_t coun
     }
 
     loc -= item_ifwi_max;
-    void __iomem *reg = xdev->bar[xcdev->bar] + register_items[loc].offset;
-pr_warn("%s: bar %d base addr %x", __func__, xcdev->bar, xdev->bar[xcdev->bar]);
-    if (!reg) {
-        pr_warn("%s: not found devId %d", __func__, xcdev->cdevno);
-        return -EINVAL;
+    uint32_t val = ioread32(pcimap_addr + register_items[loc].offset);
+    if (copy_to_user(buf, &val, 4)) {
+        pr_warn("%s: failed copy_to_user", __func__);
+        return -EIO;
+    } else {
+        *pos += 4;
+        return 4;
     }
-    uint32_t val = ioread32(reg);
-    pr_warn("%s: register value %x", __func__, val);
-    ret = copy_from_user(&val, buf, 4);
-    if (ret) {
-        pr_warn("%s: fail to copy_from_user %d", __func__, ret);
-    }
-
-    *pos += 4;
-    return 4;
 }
 
 static ssize_t char_register_write(struct file *file, const char __user *buf,
@@ -60,5 +54,8 @@ static const struct file_operations register_fops = {
 
 void cdev_register_init(struct xgpu_cdev *xcdev)
 {
-	cdev_init(&xcdev->cdev, &register_fops);
+    cdev_init(&xcdev->cdev, &register_fops);
+
+    // AMD registers are in BAR5
+    pcimap_addr = pci_iomap(xcdev->xdev->pdev, 5, 0);
 }
