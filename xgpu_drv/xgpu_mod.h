@@ -68,17 +68,6 @@ struct xgpu_dev {
 	struct msix_entry entry[32];	/* msi-x vector/entry table */
 };
 
-struct xgpu_cdev {
-	struct xgpu_pci_dev* xpdev;
-	struct xgpu_dev*     xdev;
-	dev_t                cdevno;	/* character device major:minor */
-	struct cdev          cdev;		/* character device embedded struct */
-	int                  bar;		/* PCIe BAR for HW access, if needed */
-	unsigned long        base;		/* bar access offset */
-	struct device*       sys_device;/* sysfs device */
-	spinlock_t lock;
-};
-
 struct xgpu_pci_dev {
 	struct pci_dev*  pdev;		/* pci device struct from probe() */
 	struct xgpu_dev* xdev;
@@ -88,6 +77,17 @@ struct xgpu_pci_dev {
 
     struct list_head listHead[LIST_HEAD_NUM];
     void *data;
+};
+
+struct xgpu_cdev {
+	struct xgpu_pci_dev* xpdev;
+	struct xgpu_dev*     xdev;
+	dev_t                cdevno;	/* character device major:minor */
+	struct cdev          cdev;		/* character device embedded struct */
+	int                  bar;		/* PCIe BAR for HW access, if needed */
+	unsigned long        base;		/* bar access offset */
+	struct device*       sys_device;/* sysfs device */
+	spinlock_t lock;
 };
 
 struct xcdev_member {

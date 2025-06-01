@@ -1,4 +1,3 @@
-
 /**
  * @file   gpu_drv.c
  * @brief  amd pcie device driver
@@ -17,7 +16,7 @@ static const struct pci_device_id amd_pci_ids[] = {
     { PCI_DEVICE(0x1002, 0x743f), }, //nv32
     { PCI_DEVICE(0x1002, 0x746f), }, //nv48
     { PCI_DEVICE(0x1002, 0x15bf), }, //phx
-    //{ PCI_DEVICE(0x1002, 0x164e), }, //rpl
+    { PCI_DEVICE(0x1002, 0x164e), }, //rpl
     {0,}
 };
 MODULE_DEVICE_TABLE(pci, amd_pci_ids);

@@ -5,7 +5,7 @@
 #include <linux/ioctl.h>
 
 #include "xgpu_mod.h"
-#include "cdev_config.h"
+#include "cdev_register.h"
 
 /* Use 'x' as magic number */
 #define XDMA_IOC_MAGIC	'x'
@@ -65,11 +65,11 @@ struct xgpu_ioc_info {
 #define AMD_IFWI_DEV_NAME    "ifwi"
 
 static const xgpu_cdev_node ifwi_items[] = {
-    {item_config_max, 0,  10, AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/asic"},
-    {item_config_max+1, 10, 6,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/version"},
-    {item_config_max+2, 16, 8,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/sku"}
+    {item_register_max, 0,  10, AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/asic"},
+    {item_register_max+1, 10, 6,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/version"},
+    {item_register_max+2, 16, 8,  AMD_GPU_DEV_NAME "%d/" AMD_IFWI_DEV_NAME "/sku"}
 };
 
-static const int item_ifwi_max = item_config_max + sizeof(ifwi_items)/sizeof(xgpu_cdev_node);
+static const int item_ifwi_max = item_register_max + sizeof(ifwi_items)/sizeof(xgpu_cdev_node);
 
 #endif /* _XGPU_IOCALLS_POSIX_H_ */

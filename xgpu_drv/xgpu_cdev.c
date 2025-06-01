@@ -14,10 +14,10 @@ static int config_kobject(struct xgpu_cdev *xcdev, int devId)
 
     if (devId < item_config_max)
         rv = kobject_set_name(&xcdev->cdev.kobj, config_items[devId].devnode_name, xdev->idx);
-    else if (devId < item_ifwi_max)
-        rv = kobject_set_name(&xcdev->cdev.kobj, ifwi_items[devId - item_config_max].devnode_name, xdev->idx);
     else if (devId < item_register_max)
-        rv = kobject_set_name(&xcdev->cdev.kobj, register_items[devId - item_ifwi_max].devnode_name, xdev->idx);
+        rv = kobject_set_name(&xcdev->cdev.kobj, register_items[devId - item_config_max].devnode_name, xdev->idx);
+    else if (devId < item_ifwi_max)
+        rv = kobject_set_name(&xcdev->cdev.kobj, ifwi_items[devId - item_register_max].devnode_name, xdev->idx);
 
     if (rv)
         pr_err("%s: devId 0x%x, failed %d.\n", __func__, devId, rv);
@@ -85,26 +85,25 @@ static int create_sys_device(struct xgpu_cdev *xcdev, int devId)
             pr_err("device_create(%s) failed\n", config_items[devId].devnode_name);
             return -1;
         }
-    } else if (devId < item_ifwi_max) {
-        xcdev->sys_device = device_create(g_xgpu_class, &xdev->pdev->dev,
-            xcdev->cdevno, NULL, ifwi_items[devId - item_config_max].devnode_name, xdev->idx, xcdev->bar);
-        if (!xcdev->sys_device) {
-            pr_err("device_create(%s) failed\n", ifwi_items[devId - item_config_max].devnode_name);
-            return -1;
-        }
     } else if (devId < item_register_max) {
         xcdev->sys_device = device_create(g_xgpu_class, &xdev->pdev->dev,
-            xcdev->cdevno, NULL, register_items[devId - item_ifwi_max].devnode_name, xdev->idx, xcdev->bar);
+            xcdev->cdevno, NULL, register_items[devId - item_config_max].devnode_name, xdev->idx, xcdev->bar);
         if (!xcdev->sys_device) {
-            pr_err("device_create(%s) failed\n", register_items[devId - item_ifwi_max].devnode_name);
+            pr_err("device_create(%s) failed\n", register_items[devId - item_config_max].devnode_name);
+            return -1;
+        }
+    } else if (devId < item_ifwi_max) {
+        xcdev->sys_device = device_create(g_xgpu_class, &xdev->pdev->dev,
+            xcdev->cdevno, NULL, ifwi_items[devId - item_register_max].devnode_name, xdev->idx, xcdev->bar);
+        if (!xcdev->sys_device) {
+            pr_err("device_create(%s) failed\n", ifwi_items[devId - item_register_max].devnode_name);
             return -1;
         }
     }
-
     return 0;
 }
 
-int destroy_xcdev(struct xgpu_cdev *cdev)
+static int destroy_xcdev(struct xgpu_cdev *cdev)
 {
     if (!cdev) {
         pr_warn("%s: cdev NULL.\n", __func__);
@@ -134,7 +133,7 @@ int destroy_xcdev(struct xgpu_cdev *cdev)
     return 0;
 }
 
-int create_xcdev(struct xgpu_pci_dev *xpdev, struct xgpu_cdev *xcdev,
+static int create_xcdev(struct xgpu_pci_dev *xpdev, struct xgpu_cdev *xcdev,
 			int bar, int devId)
 {
 	int rv;
@@ -164,10 +163,10 @@ int create_xcdev(struct xgpu_pci_dev *xpdev, struct xgpu_cdev *xcdev,
 
     if (devId < item_config_max)
         cdev_config_init(xcdev);
-    else if (devId < item_ifwi_max)
-        cdev_ctrl_init(xcdev);
     else if (devId < item_register_max)
         cdev_register_init(xcdev);
+    else if (devId < item_ifwi_max)
+        cdev_ctrl_init(xcdev);
 
     xcdev->cdevno = MKDEV(xpdev->major, devId);
 
@@ -202,12 +201,17 @@ static void file_destroy_interfaces(struct xgpu_pci_dev *xpdev, int type)
     struct list_head *cursor;
 
     if (list_empty(&xpdev->listHead[type])) {
-        pr_info("config interface is empty");
+        pr_info("file interface is empty");
         return;
     }
 
     list_for_each(cursor, &xpdev->listHead[type]) {
         struct xcdev_member *member = list_entry(cursor, struct xcdev_member, entry);
+        int32_t devId = member->xcdev.cdevno;
+        if ((devId >= item_config_max) && (devId < item_register_max)) {
+            cdev_register_exit(&member->xcdev);
+        }
+
         if (member && destroy_xcdev(&member->xcdev) < 0) {
             pr_err("%s: failed to destroy device\n", __func__);
             return;
@@ -266,17 +270,14 @@ int xpdev_create_interfaces(struct xgpu_pci_dev *xpdev)
     if (ret) {
         goto __fail_entry;
     }
-
-    ret = file_create_interface(xpdev, ifwi_items, sizeof(ifwi_items)/sizeof(xgpu_cdev_node), 1);
+    ret = file_create_interface(xpdev, register_items, sizeof(register_items)/sizeof(xgpu_cdev_node), 1);
     if (ret) {
         goto __fail_entry;
     }
-
-    ret = file_create_interface(xpdev, register_items, sizeof(register_items)/sizeof(xgpu_cdev_node), 2);
+    ret = file_create_interface(xpdev, ifwi_items, sizeof(ifwi_items)/sizeof(xgpu_cdev_node), 2);
     if (ret) {
         goto __fail_entry;
     }
-
     return ret;
 
 __fail_entry:

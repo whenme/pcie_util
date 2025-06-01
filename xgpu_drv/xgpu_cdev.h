@@ -22,8 +22,4 @@ void cdev_ctrl_init(struct xgpu_cdev *xcdev);
 int  xpdev_create_interfaces(struct xgpu_pci_dev *xpdev);
 void xpdev_destroy_interfaces(struct xgpu_pci_dev *xpdev);
 
-int create_xcdev(struct xgpu_pci_dev *xpdev, struct xgpu_cdev *xcdev,
-                 int bar, int type);
-int destroy_xcdev(struct xgpu_cdev *cdev);
-
 #endif   /* __XGPU_CDEV_H__ */

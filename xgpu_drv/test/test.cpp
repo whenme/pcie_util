@@ -18,6 +18,10 @@ int main()
         return -1;
     }
 
-    printf(" register value: 0x%x size: %ld\n", value, byteRead);
+    printf("register read value: 0x%x size: %ld\n", value, byteRead);
+    value += 1;
+    write(fd, &value, sizeof(value));
+    read(fd, &value, sizeof(uint32_t));
+    printf("register write and read value: 0x%x\n", value);
     return 0;
 }

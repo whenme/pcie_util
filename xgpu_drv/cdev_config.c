@@ -123,7 +123,17 @@ static ssize_t char_config_write(struct file *fp, const char __user *buf,
         }
         pci_read_config_dword(pdev, config_items[loc].offset, &val);
         break;
-    default:
+    default: {
+        if (length > PCI_CONFIG_SIZE)
+            length = PCI_CONFIG_SIZE;
+
+        if (copy_from_user(config_data, buf+*pos, length)) {
+            pr_err("%s: fail copy_from_user for %d byte", __func__, length);
+            return -EINVAL;
+        }
+        for (int ii = 0; ii < length; ii++)
+            pci_write_config_byte(pdev, config_items[loc].offset+ii, config_data[ii]);
+        }
         break;
     }
 
