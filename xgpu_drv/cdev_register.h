@@ -1,8 +1,7 @@
 #ifndef __XGPU_CDEV_REGISTER__
 #define __XGPU_CDEV_REGISTER__
 
-#include <linux/ioctl.h>
-
+#include "xgpu_export.h"
 #include "xgpu_mod.h"
 #include "cdev_config.h"
 
