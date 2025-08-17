@@ -1,4 +1,3 @@
-
 #ifndef __XGPU_LIB_H__
 #define __XGPU_LIB_H__
 
@@ -24,6 +23,9 @@
 /* maximum amount of register space to map */
 #define XGPU_BAR_SIZE (0x8000UL)
 
+/* Target internal components on XDMA control BAR */
+#define XDMA_OFS_INT_CTRL	(0x2000UL)
+#define XDMA_OFS_CONFIG		(0x3000UL)
 #ifndef VM_RESERVED
 	#define VMEM_FLAGS (VM_IO | VM_DONTEXPAND | VM_DONTDUMP)
 #else
@@ -51,6 +53,70 @@
 #define dbg_desc(...)
 #endif
 
+struct interrupt_regs {
+	u32 identifier;
+	u32 user_int_enable;
+	u32 user_int_enable_w1s;
+	u32 user_int_enable_w1c;
+	u32 channel_int_enable;
+	u32 channel_int_enable_w1s;
+	u32 channel_int_enable_w1c;
+	u32 reserved_1[9];	/* padding */
+
+	u32 user_int_request;
+	u32 channel_int_request;
+	u32 user_int_pending;
+	u32 channel_int_pending;
+	u32 reserved_2[12];	/* padding */
+
+	u32 user_msi_vector[8];
+	u32 channel_msi_vector[8];
+} __packed;
+
+struct xgpu_user_irq {
+	struct xgpu_dev *xdev;		/* parent device */
+	u8 user_idx;			/* 0 ~ 15 */
+	u8 events_irq;			/* accumulated IRQs */
+	spinlock_t events_lock;		/* lock to safely update events_irq */
+	wait_queue_head_t events_wq;	/* wait queue to sync waiting threads */
+	irq_handler_t handler;
+
+	void *dev;
+};
+
+/* PCIe device specific book-keeping */
+#define XDEV_FLAG_OFFLINE	0x1
+struct xgpu_dev {
+	struct list_head list_head;
+	struct list_head rcu_node;
+
+	struct pci_dev* pdev;		/* pci device struct from probe() */
+	int             idx;		/* dev index */
+	const char*     mod_name;	/* name of module owning the dev */
+	spinlock_t      lock;		/* protects concurrent access */
+    unsigned int    flags;
+
+    /* PCIe BAR management */
+    void __iomem* bar[XGPU_BAR_NUM];        /* addresses for mapped BARs */
+    int user_bar_idx;       /* BAR index of user logic */
+    int config_bar_idx;     /* BAR index of config logic */
+    int bypass_bar_idx;     /* BAR index of bypass logic */
+    int regions_in_use;     /* flag if dev was in use during probe() */
+    int got_regions;        /* flag if probe() obtained the regions */
+
+    int user_max;
+
+	/* Interrupt management */
+	int irq_count;		/* interrupt counter */
+	int irq_line;		/* flag if irq allocated successfully */
+    int msi_enabled;	/* flag if msi was enabled for the device */
+    int msix_enabled;	/* flag if msi-x was enabled for the device */
+	struct msix_entry *msix_entries;
+	int num_msix_entries;
+	char **msix_names;
+	struct xgpu_user_irq user_irq[16];	/* user IRQ management */
+	unsigned int mask_irq_user;
+};
 static inline void xgpu_device_flag_set(struct xgpu_dev *xdev, unsigned int f)
 {
 	unsigned long flags;

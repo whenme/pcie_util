@@ -3,6 +3,7 @@
 #include "cdev_ctrl.h"
 #include "cdev_config.h"
 #include "cdev_register.h"
+#include "libxgpu.h"
 
 static struct class *g_xgpu_class;
 struct kmem_cache *cdev_cache;

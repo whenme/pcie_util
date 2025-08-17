@@ -41,33 +41,6 @@ typedef struct _xgpu_cdev_node_ {
     char      devnode_name[32];
 }xgpu_cdev_node;
 
-/* PCIe device specific book-keeping */
-#define XDEV_FLAG_OFFLINE	0x1
-struct xgpu_dev {
-	struct list_head list_head;
-	struct list_head rcu_node;
-
-	struct pci_dev* pdev;		/* pci device struct from probe() */
-	int             idx;		/* dev index */
-	const char*     mod_name;	/* name of module owning the dev */
-	spinlock_t      lock;		/* protects concurrent access */
-    unsigned int    flags;
-
-    /* PCIe BAR management */
-    void __iomem* bar[XGPU_BAR_NUM];        /* addresses for mapped BARs */
-    int user_bar_idx;       /* BAR index of user logic */
-    int config_bar_idx;     /* BAR index of config logic */
-    int bypass_bar_idx;     /* BAR index of bypass logic */
-    int regions_in_use;     /* flag if dev was in use during probe() */
-    int got_regions;        /* flag if probe() obtained the regions */
-
-    int user_max;
-
-    int msi_enabled;	/* flag if msi was enabled for the device */
-    int msix_enabled;	/* flag if msi-x was enabled for the device */
-	struct msix_entry entry[32];	/* msi-x vector/entry table */
-};
-
 struct xgpu_pci_dev {
 	struct pci_dev*  pdev;		/* pci device struct from probe() */
 	struct xgpu_dev* xdev;

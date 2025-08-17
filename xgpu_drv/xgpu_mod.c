@@ -52,6 +52,13 @@ static struct xgpu_pci_dev *xpdev_alloc(struct pci_dev *pdev)
 	return xpdev;
 }
 
+static irqreturn_t xgpu_msi_interrupt(int irq, void *dev_id)
+{
+    struct xgpu_dev *xdev = (struct xgpu_dev *)dev_id;
+    dev_info(&xdev->pdev->dev, "MSI interrupt received!\n");
+    return IRQ_HANDLED;
+}
+
 static int probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
 {
     int rv = 0;
@@ -89,14 +96,30 @@ static int probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
 
     xpdev->xdev = hndl;
 
+    rv = pci_enable_msi(pdev);
+    if (rv) {
+        dev_err(&pdev->dev, "pci_enable_msi failed\n");
+        goto err_out;
+    }
+
+    rv = request_irq(pdev->irq, xgpu_msi_interrupt, 0, "xgpu_msi", xpdev->xdev);
+    if (rv) {
+        dev_err(&pdev->dev, "request_irq failed\n");
+        pci_disable_msi(pdev);
+        goto err_out;
+    }
+
     rv = xpdev_create_interfaces(xpdev);
     if (rv)
-        goto err_out;
+        goto err_irq;
 
     dev_set_drvdata(&pdev->dev, xpdev);
 
     return 0;
 
+err_irq:
+    free_irq(pdev->irq, xpdev->xdev);
+    pci_disable_msi(pdev);
 err_out:
     pr_err("%s: pdev 0x%p, err %d.\n", __func__, pdev, rv);
     xpdev_free(xpdev);
@@ -105,18 +128,13 @@ err_out:
 
 static void remove_one(struct pci_dev *pdev)
 {
-    if (!pdev)
-        return;
-
     struct xgpu_pci_dev *xpdev = dev_get_drvdata(&pdev->dev);
-    if (!xpdev)
-        return;
-
-    pr_info("%s: pdev 0x%p, xdev 0x%p, 0x%p.\n", __func__,
-        pdev, xpdev, xpdev->xdev);
-    xpdev_free(xpdev);
-
-    dev_set_drvdata(&pdev->dev, NULL);
+    if (xpdev) {
+        pr_info("%s: pdev 0x%p, xpdev 0x%p.\n", __func__, pdev, xpdev);
+        free_irq(pdev->irq, xpdev->xdev);
+        pci_disable_msi(pdev);
+        xpdev_free(xpdev);
+    }
 }
 
 static pci_ers_result_t xgpu_error_detected(struct pci_dev *pdev,
